@@ -6,12 +6,10 @@ import numpy as np
 class Dataset:
     '''
     If you want to use another vendor, just switch paths
-    ind_ood_car_dict_path='../five_fold_utils/ind_odd_dict1.npz.npy'
-    ind_ood_car_dict_path='../five_fold_utils/ind_odd_dict2.npz.npy'
-    ind_ood_car_dict_path='../five_fold_utils/ind_odd_dict3.npz.npy'
+    ind_ood_car_dict_path='data/ind_odd_dict1.npz.npy'
     '''
-    def __init__(self, data_path, all_car_dict_path='../five_fold_utils/all_car_dict.npz.npy',
-     ind_ood_car_dict_path='../five_fold_utils/ind_odd_dict1.npz.npy',
+    def __init__(self, data_path, all_car_dict_path='data/all_car_dict.npz.npy',
+     ind_ood_car_dict_path='data/ind_odd_dict1.npz.npy',
      train=True, fold_num=0):
         ind_ood_car_dict = np.load(ind_ood_car_dict_path, allow_pickle=True).item()
         self.ind_car_num_list = ind_ood_car_dict['ind_sorted']

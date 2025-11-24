@@ -16,10 +16,10 @@ from torch.optim.lr_scheduler import CosineAnnealingLR
 from torch.utils.data import DataLoader
 
 from tqdm import tqdm
-from model import tasks
-from model import dynamic_vae
-from utils import to_var, collate, Normalizer, PreprocessNormalizer
-from model import dataset
+from src.model import tasks
+from src.model import dynamic_vae
+from src.utils import to_var, collate, Normalizer, PreprocessNormalizer
+from src.model import dataset
 
 
 class Train_fivefold:

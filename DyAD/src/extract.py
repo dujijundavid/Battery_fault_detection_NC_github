@@ -5,11 +5,11 @@ import time
 import torch
 from torch.utils.data import DataLoader
 from tqdm import tqdm
-from utils import collate
-from model import dataset
-from train import extract
-from utils import to_var, collate, Normalizer, PreprocessNormalizer
-from model import tasks
+from src.utils import collate
+from src.model import dataset
+from src.train import extract
+from src.utils import to_var, collate, Normalizer, PreprocessNormalizer
+from src.model import tasks
 import pickle
 
 class Extraction:

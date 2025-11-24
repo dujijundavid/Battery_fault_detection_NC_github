@@ -14,38 +14,38 @@
 
 ### 1.1 顶层目录结构
 
-| 目录/文件 | 功能 | 关键依赖 |
-|---------|------|---------|
-| **DyAD/** | 核心算法实现（Dynamic VAE 异常检测） | PyTorch, torch-geometric |
-| **data/** | 数据存储目录 | - |
-| **five_fold_utils/** | 五折交叉验证数据划分 | - |
-| **notebooks/** | 评估脚本（计算 AUROC） | 模型训练结果 |
-| **AE_and_SVDD/** | 基线方法（AutoEncoder & DeepSVDD） | PyOD |
-| **GDN_battery/** | 基线方法（Graph Deviation Network） | torch-geometric |
-| **Recurrent-Autoencoder-modify/** | 基线方法（LSTM-AD） | TensorFlow |
-| **requirement.txt** | Python依赖清单 | - |
+| 目录/文件                         | 功能                                 | 关键依赖                 |
+| --------------------------------- | ------------------------------------ | ------------------------ |
+| **DyAD/**                         | 核心算法实现（Dynamic VAE 异常检测） | PyTorch, torch-geometric |
+| **data/**                         | 数据存储目录                         | -                        |
+| **five_fold_utils/**              | 五折交叉验证数据划分                 | -                        |
+| **notebooks/**                    | 评估脚本（计算 AUROC）               | 模型训练结果             |
+| **AE_and_SVDD/**                  | 基线方法（AutoEncoder & DeepSVDD）   | PyOD                     |
+| **GDN_battery/**                  | 基线方法（Graph Deviation Network）  | torch-geometric          |
+| **Recurrent-Autoencoder-modify/** | 基线方法（LSTM-AD）                  | TensorFlow               |
+| **requirement.txt**               | Python依赖清单                       | -                        |
 
 ### 1.2 DyAD/ 核心文件详解
 
-| 文件名 | 类/函数 | 功能说明 | 依赖关系 |
-|-------|--------|---------|---------|
-| **main_five_fold.py** | `main()` | **五折训练主入口**：串联训练→特征提取→异常检测 | train.py, extract.py, evaluate.py |
-| **train.py** | `Train_fivefold` | **训练模块**：<br>• 加载数据并归一化<br>• 创建 VAE 模型并训练<br>• 保存模型、参数、特征 | dataset.py, dynamic_vae.py, tasks.py, utils.py |
-| **dynamic_vae.py** | `DynamicVAE` | **VAE 模型定义**：<br>• Encoder-Decoder RNN架构<br>• 潜在变量采样<br>• 重构输出 | PyTorch nn.Module |
-| **dataset.py** | `Dataset` | **数据加载器**：<br>• 根据 `fold_num` 划分训练/测试集<br>• 从 `ind_odd_dict*.npz.npy` 读取车辆编号<br>• 从 `all_car_dict.npz.npy` 映射到具体 pkl 文件 | five_fold_utils/ |
-| **tasks.py** | `Task`, `BatterybrandaTask` 等 | **特征选择器**：<br>• 定义编码器/解码器使用的特征列<br>• 不同品牌使用不同特征子集 | - |
-| **extract.py** | `Extraction` | **特征提取**：<br>• 加载训练好的模型<br>• 对测试集提取潜在特征 (mean) 和重构误差 | train.py, dataset.py |
-| **evaluate.py** | `Evaluate` | **异常检测评分**：<br>• 根据重构误差排序<br>• 生成 `train_segment_scores.csv` 和 `test_segment_scores.csv` | extract.py 输出 |
-| **utils.py** | `Normalizer`, `PreprocessNormalizer`, `collate` | **工具函数**：<br>• 数据归一化（min-max + std）<br>• 批次整理<br>• GPU 转换 | - |
+| 文件名                | 类/函数                                         | 功能说明                                                                                                                                              | 依赖关系                                       |
+| --------------------- | ----------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------- |
+| **main_five_fold.py** | `main()`                                        | **五折训练主入口**：串联训练→特征提取→异常检测                                                                                                        | train.py, extract.py, evaluate.py              |
+| **train.py**          | `Train_fivefold`                                | **训练模块**：<br>• 加载数据并归一化<br>• 创建 VAE 模型并训练<br>• 保存模型、参数、特征                                                               | dataset.py, dynamic_vae.py, tasks.py, utils.py |
+| **dynamic_vae.py**    | `DynamicVAE`                                    | **VAE 模型定义**：<br>• Encoder-Decoder RNN架构<br>• 潜在变量采样<br>• 重构输出                                                                       | PyTorch nn.Module                              |
+| **dataset.py**        | `Dataset`                                       | **数据加载器**：<br>• 根据 `fold_num` 划分训练/测试集<br>• 从 `ind_odd_dict*.npz.npy` 读取车辆编号<br>• 从 `all_car_dict.npz.npy` 映射到具体 pkl 文件 | five_fold_utils/                               |
+| **tasks.py**          | `Task`, `BatterybrandaTask` 等                  | **特征选择器**：<br>• 定义编码器/解码器使用的特征列<br>• 不同品牌使用不同特征子集                                                                     | -                                              |
+| **extract.py**        | `Extraction`                                    | **特征提取**：<br>• 加载训练好的模型<br>• 对测试集提取潜在特征 (mean) 和重构误差                                                                      | train.py, dataset.py                           |
+| **evaluate.py**       | `Evaluate`                                      | **异常检测评分**：<br>• 根据重构误差排序<br>• 生成 `train_segment_scores.csv` 和 `test_segment_scores.csv`                                            | extract.py 输出                                |
+| **utils.py**          | `Normalizer`, `PreprocessNormalizer`, `collate` | **工具函数**：<br>• 数据归一化（min-max + std）<br>• 批次整理<br>• GPU 转换                                                                           | -                                              |
 
 ### 1.3 模型参数配置文件
 
-| 文件名 | 用途 |
-|-------|------|
-| `model_params_battery_brand1.json` | 品牌1 训练配置 |
-| `model_params_battery_brand2.json` | 品牌2 训练配置 |
-| `model_params_battery_brand3.json` | 品牌3 训练配置 |
-| `params_fivefold.json` | 五折通用配置模板 |
+| 文件名                             | 用途             |
+| ---------------------------------- | ---------------- |
+| `model_params_battery_brand1.json` | 品牌1 训练配置   |
+| `model_params_battery_brand2.json` | 品牌2 训练配置   |
+| `model_params_battery_brand3.json` | 品牌3 训练配置   |
+| `params_fivefold.json`             | 五折通用配置模板 |
 
 ### 1.4 数据组织
 
@@ -77,12 +77,12 @@ data/
 
 ### 1.5 五折工具文件
 
-| 文件 | 功能 |
-|-----|------|
-| `five_fold_utils/all_car_dict.npz.npy` | 字典：`{车辆编号: [pkl文件路径列表]}` |
+| 文件                                    | 功能                                                                        |
+| --------------------------------------- | --------------------------------------------------------------------------- |
+| `five_fold_utils/all_car_dict.npz.npy`  | 字典：`{车辆编号: [pkl文件路径列表]}`                                       |
 | `five_fold_utils/ind_odd_dict1.npz.npy` | 品牌1的五折划分：`{'ind_sorted': 正常车辆列表, 'ood_sorted': 异常车辆列表}` |
-| `five_fold_utils/ind_odd_dict2.npz.npy` | 品牌2的五折划分 |
-| `five_fold_utils/ind_odd_dict3.npz.npy` | 品牌3的五折划分 |
+| `five_fold_utils/ind_odd_dict2.npz.npy` | 品牌2的五折划分                                                             |
+| `five_fold_utils/ind_odd_dict3.npz.npy` | 品牌3的五折划分                                                             |
 
 ---
 
@@ -360,12 +360,12 @@ del ev
 #### fold_num 的作用
 
 | fold_num | 训练集（正常车辆） | 测试集（正常车辆） | 测试集（异常车辆） |
-|----------|------------------|------------------|------------------|
-| 0 | 第1~4折 | 第0折 | 全部异常车辆 |
-| 1 | 第0,2~4折 | 第1折 | 全部异常车辆 |
-| 2 | 第0~1,3~4折 | 第2折 | 全部异常车辆 |
-| 3 | 第0~2,4折 | 第3折 | 全部异常车辆 |
-| 4 | 第0~3折 | 第4折 | 全部异常车辆 |
+| -------- | ------------------ | ------------------ | ------------------ |
+| 0        | 第1~4折            | 第0折              | 全部异常车辆       |
+| 1        | 第0,2~4折          | 第1折              | 全部异常车辆       |
+| 2        | 第0~1,3~4折        | 第2折              | 全部异常车辆       |
+| 3        | 第0~2,4折          | 第3折              | 全部异常车辆       |
+| 4        | 第0~3折            | 第4折              | 全部异常车辆       |
 
 **关键代码** (dataset.py):
 ```python
@@ -413,34 +413,34 @@ done
 
 ### 4.1 模型架构参数
 
-| 参数名 | 默认值 | 含义 | 影响 |
-|-------|--------|------|------|
-| `latent_size` | 8 | 潜在空间维度 | • 越大模型容量越强，但可能过拟合<br>• 越小训练快但表达能力弱 |
-| `hidden_size` | 128 | RNN隐藏层维度 | • 决定模型记忆能力<br>• 太大会导致训练慢、显存占用高 |
-| `num_layers` | 2 | RNN层数 | • 更深的网络可以捕捉更复杂的时序依赖<br>• 过深容易梯度消失 |
-| `bidirectional` | true | 是否双向RNN | • 双向可以同时利用前后文信息<br>• 显存和计算量翻倍 |
-| `rnn_type` | "gru" | RNN类型 | • `gru`: 训练快，性能好<br>• `lstm`: 长序列记忆更好<br>• `rnn`: 最简单但容易梯度问题 |
-| `kernel_size` | 3 | 卷积核大小（未使用） | - |
-| `nhead` | 2 | Transformer注意力头数（未使用） | - |
-| `dim_feedforward` | 2048 | Transformer前馈网络维度（未使用） | - |
+| 参数名            | 默认值 | 含义                              | 影响                                                                                 |
+| ----------------- | ------ | --------------------------------- | ------------------------------------------------------------------------------------ |
+| `latent_size`     | 8      | 潜在空间维度                      | • 越大模型容量越强，但可能过拟合<br>• 越小训练快但表达能力弱                         |
+| `hidden_size`     | 128    | RNN隐藏层维度                     | • 决定模型记忆能力<br>• 太大会导致训练慢、显存占用高                                 |
+| `num_layers`      | 2      | RNN层数                           | • 更深的网络可以捕捉更复杂的时序依赖<br>• 过深容易梯度消失                           |
+| `bidirectional`   | true   | 是否双向RNN                       | • 双向可以同时利用前后文信息<br>• 显存和计算量翻倍                                   |
+| `rnn_type`        | "gru"  | RNN类型                           | • `gru`: 训练快，性能好<br>• `lstm`: 长序列记忆更好<br>• `rnn`: 最简单但容易梯度问题 |
+| `kernel_size`     | 3      | 卷积核大小（未使用）              | -                                                                                    |
+| `nhead`           | 2      | Transformer注意力头数（未使用）   | -                                                                                    |
+| `dim_feedforward` | 2048   | Transformer前馈网络维度（未使用） | -                                                                                    |
 
 ### 4.2 训练超参数
 
-| 参数名 | 默认值 | 含义 | 调参建议 |
-|-------|--------|------|---------|
-| `epochs` | 3 | 训练轮数 | • 3轮适合快速实验<br>• 生产环境建议10-20轮并观察 loss 曲线 |
-| `batch_size` | 128 | 批次大小 | • 越大训练稳定但显存占用高<br>• 32-256 之间根据显存调整 |
-| `learning_rate` | 0.005 | 初始学习率 | • AdamW 推荐 1e-3 ~ 1e-2<br>• 配合 CosineAnnealingLR 衰减 |
-| `cosine_factor` | 0.1 | 学习率最低点相对初始LR的比例 | • 决定学习率衰减程度<br>• 0.1 表示最低降至初始的10% |
-| `noise_scale` | 1.0 | 潜在变量采样时的噪声强度 | • 训练时加噪声防止过拟合<br>• 推理时固定为0（使用 mean） |
+| 参数名          | 默认值 | 含义                         | 调参建议                                                   |
+| --------------- | ------ | ---------------------------- | ---------------------------------------------------------- |
+| `epochs`        | 3      | 训练轮数                     | • 3轮适合快速实验<br>• 生产环境建议10-20轮并观察 loss 曲线 |
+| `batch_size`    | 128    | 批次大小                     | • 越大训练稳定但显存占用高<br>• 32-256 之间根据显存调整    |
+| `learning_rate` | 0.005  | 初始学习率                   | • AdamW 推荐 1e-3 ~ 1e-2<br>• 配合 CosineAnnealingLR 衰减  |
+| `cosine_factor` | 0.1    | 学习率最低点相对初始LR的比例 | • 决定学习率衰减程度<br>• 0.1 表示最低降至初始的10%        |
+| `noise_scale`   | 1.0    | 潜在变量采样时的噪声强度     | • 训练时加噪声防止过拟合<br>• 推理时固定为0（使用 mean）   |
 
 ### 4.3 损失函数权重
 
-| 参数名 | 默认值 | 含义 | 调参建议 |
-|-------|--------|------|---------|
-| `nll_weight` | 10 | 重构损失权重 | • **最重要**：主任务是重构<br>• 增大使模型更专注于重构精度 |
-| `anneal0` | 0.01 | KL散度损失的最大权重 | • 起始权重，通过退火函数逐步增大<br>• 太大会导致 posterior collapse（后验坍塌） |
-| `latent_label_weight` | 0.001 | 里程数预测损失权重 | • 辅助任务，帮助潜在空间学习有意义的表示<br>• 太大会影响主任务 |
+| 参数名                | 默认值 | 含义                 | 调参建议                                                                        |
+| --------------------- | ------ | -------------------- | ------------------------------------------------------------------------------- |
+| `nll_weight`          | 10     | 重构损失权重         | • **最重要**：主任务是重构<br>• 增大使模型更专注于重构精度                      |
+| `anneal0`             | 0.01   | KL散度损失的最大权重 | • 起始权重，通过退火函数逐步增大<br>• 太大会导致 posterior collapse（后验坍塌） |
+| `latent_label_weight` | 0.001  | 里程数预测损失权重   | • 辅助任务，帮助潜在空间学习有意义的表示<br>• 太大会影响主任务                  |
 
 **损失函数公式**：
 ```
@@ -449,11 +449,11 @@ loss = nll_weight × nll_loss + kl_weight(step) × kl_loss + latent_label_weight
 
 ### 4.4 KL退火参数
 
-| 参数名 | 默认值 | 含义 | 影响 |
-|-------|--------|------|------|
-| `anneal_function` | "linear" | 退火函数类型 | • `linear`: 线性增长<br>• `logistic`: S型曲线增长 |
-| `x0` | 500 | 退火中点步数 | • linear: 第500步达到最大权重<br>• logistic: 第500步达到一半权重 |
-| `k` | 0.0025 | logistic函数斜率 | • 仅用于 logistic 模式<br>• 越大曲线越陡 |
+| 参数名            | 默认值   | 含义             | 影响                                                             |
+| ----------------- | -------- | ---------------- | ---------------------------------------------------------------- |
+| `anneal_function` | "linear" | 退火函数类型     | • `linear`: 线性增长<br>• `logistic`: S型曲线增长                |
+| `x0`              | 500      | 退火中点步数     | • linear: 第500步达到最大权重<br>• logistic: 第500步达到一半权重 |
+| `k`               | 0.0025   | logistic函数斜率 | • 仅用于 logistic 模式<br>• 越大曲线越陡                         |
 
 **退火函数可视化**：
 ```
@@ -467,30 +467,30 @@ Logistic: kl_weight = anneal0 / (1 + exp(-k * (step - x0)))
 
 ### 4.5 数据处理参数
 
-| 参数名 | 默认值 | 含义 | 影响 |
-|-------|--------|------|------|
-| `variable_length` | false | 是否支持变长序列 | • true: 需要用 `pack_padded_sequence`<br>• false: 固定长度，训练更快 |
-| `min_length` | 30 | 最小序列长度（未使用） | - |
-| `jobs` | 32 | DataLoader进程数 | • 根据CPU核心数调整<br>• 过多会导致内存占用高 |
+| 参数名            | 默认值 | 含义                   | 影响                                                                 |
+| ----------------- | ------ | ---------------------- | -------------------------------------------------------------------- |
+| `variable_length` | false  | 是否支持变长序列       | • true: 需要用 `pack_padded_sequence`<br>• false: 固定长度，训练更快 |
+| `min_length`      | 30     | 最小序列长度（未使用） | -                                                                    |
+| `jobs`            | 32     | DataLoader进程数       | • 根据CPU核心数调整<br>• 过多会导致内存占用高                        |
 
 ### 4.6 评估参数
 
-| 参数名 | 默认值 | 含义 | 影响 |
-|-------|--------|------|------|
-| `use_flag` | "rec_error" | 异常分数类型 | • `rec_error`: 重构误差（MSE）<br>• `l2norm`: L2范数<br>• `copod_score`: COPOD算法分数（未实现） |
-| `granularity_all` | 1000 | 全局粒度（未使用） | - |
-| `num_granularity_all` | 100 | 全局粒度数量（未使用） | - |
-| `granularity_car` | 1000 | 单车粒度（未使用） | - |
-| `num_granularity_car` | 200 | 单车粒度数量（未使用） | - |
+| 参数名                | 默认值      | 含义                   | 影响                                                                                             |
+| --------------------- | ----------- | ---------------------- | ------------------------------------------------------------------------------------------------ |
+| `use_flag`            | "rec_error" | 异常分数类型           | • `rec_error`: 重构误差（MSE）<br>• `l2norm`: L2范数<br>• `copod_score`: COPOD算法分数（未实现） |
+| `granularity_all`     | 1000        | 全局粒度（未使用）     | -                                                                                                |
+| `num_granularity_all` | 100         | 全局粒度数量（未使用） | -                                                                                                |
+| `granularity_car`     | 1000        | 单车粒度（未使用）     | -                                                                                                |
+| `num_granularity_car` | 200         | 单车粒度数量（未使用） | -                                                                                                |
 
 ### 4.7 路径参数
 
-| 参数名 | 示例值 | 说明 |
-|-------|--------|------|
-| `train_path` | `../data/battery_brand1/train` | 训练数据目录 |
-| `test_path` | `../data/battery_brand1/test` | 测试数据目录 |
-| `evaluation_path` | `../data/battery_brand1/label` | 标签目录 |
-| `save_model_path` | `./dyad_vae_save` | 模型保存根目录 |
+| 参数名            | 示例值                         | 说明           |
+| ----------------- | ------------------------------ | -------------- |
+| `train_path`      | `../data/battery_brand1/train` | 训练数据目录   |
+| `test_path`       | `../data/battery_brand1/test`  | 测试数据目录   |
+| `evaluation_path` | `../data/battery_brand1/label` | 标签目录       |
+| `save_model_path` | `./dyad_vae_save`              | 模型保存根目录 |
 
 **训练后自动创建的子目录**：
 ```
@@ -692,12 +692,12 @@ graph TB
 
 #### 必需依赖
 
-| 组件 | 版本要求 | 原因 |
-|-----|---------|------|
-| **CUDA** | **10.2** | • 必须精确版本，PyTorch-Geometric 编译依赖<br>• 下载：https://developer.nvidia.com/cuda-10.2-download-archive |
-| **Python** | 3.6 | • 代码使用 f-string 等 3.6+ 特性 |
-| **PyTorch** | 1.5.1 | • 与 CUDA 10.2 匹配<br>• 安装：`pip install torch==1.5.1+cu102` |
-| **cuDNN** | 7.x | • CUDA 10.2 配套版本<br>• 从 NVIDIA 官网下载 |
+| 组件        | 版本要求 | 原因                                                                                                          |
+| ----------- | -------- | ------------------------------------------------------------------------------------------------------------- |
+| **CUDA**    | **10.2** | • 必须精确版本，PyTorch-Geometric 编译依赖<br>• 下载：https://developer.nvidia.com/cuda-10.2-download-archive |
+| **Python**  | 3.6      | • 代码使用 f-string 等 3.6+ 特性                                                                              |
+| **PyTorch** | 1.5.1    | • 与 CUDA 10.2 匹配<br>• 安装：`pip install torch==1.5.1+cu102`                                               |
+| **cuDNN**   | 7.x      | • CUDA 10.2 配套版本<br>• 从 NVIDIA 官网下载                                                                  |
 
 #### PyTorch-Geometric 依赖
 
@@ -884,11 +884,11 @@ DataLoader(dataset=train, batch_size=128, num_workers=0, ...)
 
 #### 显存需求
 
-| 配置 | 显存占用 | 推荐GPU |
-|-----|---------|---------|
-| batch_size=128, hidden_size=128 | ~6GB | RTX 2060 (6GB) 或以上 |
-| batch_size=64, hidden_size=128 | ~3GB | GTX 1060 (6GB) |
-| batch_size=32, hidden_size=64 | ~1.5GB | GTX 1050 Ti (4GB) |
+| 配置                            | 显存占用 | 推荐GPU               |
+| ------------------------------- | -------- | --------------------- |
+| batch_size=128, hidden_size=128 | ~6GB     | RTX 2060 (6GB) 或以上 |
+| batch_size=64, hidden_size=128  | ~3GB     | GTX 1060 (6GB)        |
+| batch_size=32, hidden_size=64   | ~1.5GB   | GTX 1050 Ti (4GB)     |
 
 #### 内存需求
 
@@ -897,11 +897,11 @@ DataLoader(dataset=train, batch_size=128, num_workers=0, ...)
 
 #### 训练时间估算
 
-| 硬件 | 单个 fold (3 epochs) | 完整五折 |
-|-----|---------------------|---------|
-| RTX 3090 | ~10分钟 | ~50分钟 |
-| RTX 2060 | ~20分钟 | ~100分钟 |
-| GTX 1060 | ~40分钟 | ~200分钟 |
+| 硬件     | 单个 fold (3 epochs) | 完整五折 |
+| -------- | -------------------- | -------- |
+| RTX 3090 | ~10分钟              | ~50分钟  |
+| RTX 2060 | ~20分钟              | ~100分钟 |
+| GTX 1060 | ~40分钟              | ~200分钟 |
 
 ### 6.6 调试建议
 
