@@ -1,6 +1,27 @@
 # 动态 VAE（DyAD）深入解析
+- [1. 类/函数级剖析 (Class & Function Analysis)](#1-类函数级剖析-class--function-analysis)
+  - [1.1 `__init__` (初始化)](#11-init-初始化)
+  - [1.2 `forward` (前向传播)](#12-forward-前向传播)
+- [2. 前向传播数据流 (Forward Process)](#2-前向传播数据流-forward-process)
+  - [2.1 完整流程图](#21-完整流程图)
+  - [2.2 逐行代码流程](#22-逐行代码流程)
+- [3. 损失项公式与代码定位 (Loss Functions)](#3-损失项公式与代码定位-loss-functions)
+  - [3.1 重构误差 (Reconstruction Loss)](#31-重构误差-reconstruction-loss)
+  - [3.2 KL 散度 (KL Divergence)](#32-kl-散度-kl-divergence)
+  - [3.3 辅助任务/标签损失 (Label Loss)](#33-辅助任务标签损失-label-loss)
+  - [3.4 总损失 (Total Loss)](#34-总损失-total-loss)
+  - [3.5 损失计算总流程 (Loss Calculation Flow)](#35-损失计算总流程-loss-calculation-flow)
+- [4. 张量维度追踪表 (Tensor Dimension Tracking)](#4-张量维度追踪表-tensor-dimension-tracking)
+- [5. 数值稳定性与训练技巧 (Numerical Stability & Training Tips)](#5-数值稳定性与训练技巧-numerical-stability--training-tips)
+- [6. 与论文思想的映射 (Mapping to Paper)](#6-与论文思想的映射-mapping-to-paper)
+- [7. 图表与可视化 (Charts & Visualization)](#7-图表与可视化-charts--visualization)
+- [8. 实验复现最小清单 (Reproduction Checklist)](#8-实验复现最小清单-reproduction-checklist)
+- [9. 关键等式汇总 (Key Equations)](#9-关键等式汇总-key-equations)
+- [10. 伪代码实现 (Pseudocode)](#10-伪代码实现-pseudocode)
+- [11. 数值稳定性代码实践 (Code Best Practices)](#11-数值稳定性代码实践-code-best-practices)
 
-本文档面向开发者与研究者，深入剖析 DyAD（Dynamic Variational Autoencoder）模块的实现细节、数据流向及数学原理。
+
+> 本文档面向开发者与研究者，深入剖析 DyAD（Dynamic Variational Autoencoder）模块的实现细节、数据流向及数学原理。
 
 **分析对象**：
 - 主角：`DyAD/model/dynamic_vae.py`
@@ -42,7 +63,24 @@
 
 ---
 
-## 2. 前向流程图 (Forward Process)
+## 2. 前向传播数据流 (Forward Process)
+
+### 2.1 完整流程图
+#### 2.1.1 高层数据流 (High-Level Data Flow)
+```mermaid
+graph LR
+    Input[Input Sequence] --> Encoder
+    Encoder --> Latent[Latent Space z]
+    Latent --> Decoder
+    Decoder --> Output[Reconstructed Sequence]
+    Latent --> Aux[Auxiliary Task - Label Prediction]
+    
+    style Input fill:#e1f5fe,stroke:#01579b
+    style Output fill:#e1f5fe,stroke:#01579b
+    style Latent fill:#fff9c4,stroke:#fbc02d
+```
+
+#### 2.1.2 详细架构图 (Detailed Architecture)
 
 ```mermaid
 graph TD
@@ -81,6 +119,64 @@ graph TD
     style Z fill:#ff9,stroke:#333,stroke-width:2px
     style Recon fill:#9f9,stroke:#333,stroke-width:2px
     style Pred fill:#9f9,stroke:#333,stroke-width:2px
+```
+
+### 2.2 逐行代码流程
+
+**代码位置**: `DyAD/model/dynamic_vae.py` (forward 方法)
+
+```python
+def forward(self, input_sequence, encoder_filter, decoder_filter, seq_lengths, noise_scale=1.0):
+    # Step 1: 获取批次大小
+    batch_size = input_sequence.size(0)
+    
+    # Step 2: Encoder 路径
+    en_input_sequence = encoder_filter(input_sequence)  # 提取编码器特征
+    en_input_embedding = en_input_sequence.to(torch.float32)
+    if self.variable_length:
+        en_input_embedding = pack_padded_sequence(en_input_embedding, seq_lengths, batch_first=True)
+    output, hidden = self.encoder_rnn(en_input_embedding)  # RNN 编码
+    
+    # Step 3: 重塑隐藏状态
+    if self.bidirectional or self.num_layers > 1:
+        hidden = hidden.view(batch_size, self.hidden_size * self.hidden_factor)
+    else:
+        hidden = hidden.squeeze()
+    
+    # Step 4: 变分推断
+    mean = self.hidden2mean(hidden)  # μ
+    log_v = self.hidden2log_v(hidden)  # log(σ²)
+    std = torch.exp(0.5 * log_v)  # σ = exp(0.5 * log(σ²))
+    mean_pred = self.mean2latent(mean)  # 标签预测
+    
+    # Step 5: 重参数化采样
+    z = to_var(torch.randn([batch_size, self.latent_size]))
+    if self.training:
+        z = z * std * noise_scale + mean
+    else:
+        z = mean
+    
+    # Step 6: 潜在向量到解码器隐藏状态
+    hidden = self.latent2hidden(z)
+    if self.bidirectional or self.num_layers > 1:
+        hidden = hidden.view(self.hidden_factor, batch_size, self.hidden_size)
+    else:
+        hidden = hidden.unsqueeze(0)
+    
+    # Step 7: Decoder 路径
+    de_input_sequence = decoder_filter(input_sequence)  # 提取解码器特征
+    de_input_embedding = de_input_sequence.to(torch.float32)
+    if self.variable_length:
+        de_input_embedding = pack_padded_sequence(de_input_embedding, seq_lengths, batch_first=True)
+        outputs, _ = self.decoder_rnn(de_input_embedding, hidden)
+        outputs, _ = pad_packed_sequence(outputs, batch_first=True)
+    else:
+        outputs, _ = self.decoder_rnn(de_input_embedding, hidden)
+    
+    # Step 8: 输出投影
+    log_p = self.outputs2embedding(outputs)  # 重构输出
+    
+    return log_p, mean, log_v, z, mean_pred
 ```
 
 ---
@@ -126,6 +222,32 @@ $$ \mathcal{L}_{total} = w_{nll} \cdot \mathcal{L}_{recon} + w_{label} \cdot \ma
 
 - **代码定位**: `DyAD/train.py` -> `Train_fivefold.main` -> line 139-140
 
+### 3.5 损失计算总流程 (Loss Calculation Flow)
+
+```mermaid
+sequenceDiagram
+    participant Data as DataLoader
+    participant Model as DynamicVAE
+    participant Loss as LossFunction
+    participant Optimizer as Optimizer
+
+    Data->>Model: Input Batch x, y
+    activate Model
+    Model->>Model: Encoder x to h
+    Model->>Model: Reparameterize h to z
+    Model->>Model: Decoder z to x_hat
+    Model->>Model: Aux Predictor z to y_hat
+    Model-->>Loss: Return x_hat, mean, log_v, y_hat
+    deactivate Model
+
+    Loss->>Loss: Calc Recon Loss x, x_hat
+    Loss->>Loss: Calc KL Loss mean, log_v
+    Loss->>Loss: Calc Label Loss y, y_hat
+    Loss-->>Optimizer: Total Loss
+    
+    Optimizer->>Model: Backward & Step
+```
+
 ---
 
 ## 4. 张量维度追踪表 (Tensor Dimension Tracking)
@@ -154,9 +276,42 @@ $$ \mathcal{L}_{total} = w_{nll} \cdot \mathcal{L}_{recon} + w_{label} \cdot \ma
 | **输出** | `log_p` | $(B, T, F_{out})$ | 重构序列 | `forward`:72 |
 | **辅助** | `mean_pred` | $(B, 1)$ | 辅助预测值 | `forward`:49 |
 
+### 4.1 维度变换流向图 (Dimension Flow Chart)
+
+```mermaid
+graph TD
+    subgraph Input_Stage
+    In[Input: B x T x F] -->|Encoder Filter| EnIn[Enc Input: B x T x F_enc]
+    end
+
+    subgraph Encoder_Stage
+    EnIn -->|RNN| EnOut[RNN Output: B x T x H]
+    EnOut -->|Last Step| Hidden[Hidden: B x H]
+    end
+
+    subgraph Latent_Stage
+    Hidden -->|Linear| Mean[Mean: B x L]
+    Hidden -->|Linear| LogV[LogVar: B x L]
+    Mean & LogV -->|Reparameterize| Z[z: B x L]
+    Mean -->|MLP| AuxPred[Aux Pred: B x 1]
+    end
+
+    subgraph Decoder_Stage
+    Z -->|Linear| DecInit[Dec Init: B x H]
+    In -->|Decoder Filter| DecIn[Dec Input: B x T x F_dec]
+    DecIn & DecInit -->|RNN| DecOut[RNN Output: B x T x H]
+    DecOut -->|Linear| Recon[Recon Output: B x T x F_out]
+    end
+
+    style In fill:#e1f5fe
+    style Z fill:#fff9c4
+    style Recon fill:#c8e6c9
+    style AuxPred fill:#c8e6c9
+```
+
 ---
 
-## 5. 数值稳定性与训练技巧
+## 5. 数值稳定性与训练技巧 (Numerical Stability & Training Tips)
 
 ### 潜在问题
 1.  **后验塌缩 (Posterior Collapse)**: 解码器过于强大（如 LSTM），忽略潜在变量 $z$，导致 KL 散度趋近于 0，$z$ 失去编码信息。
@@ -172,7 +327,7 @@ $$ \mathcal{L}_{total} = w_{nll} \cdot \mathcal{L}_{recon} + w_{label} \cdot \ma
 
 ---
 
-## 6. 与论文思想的映射
+## 6. 与论文思想的映射 (Mapping to Paper)
 
 | 论文思想 | 代码实现映射 | 说明 |
 | :--- | :--- | :--- |
@@ -183,9 +338,9 @@ $$ \mathcal{L}_{total} = w_{nll} \cdot \mathcal{L}_{recon} + w_{label} \cdot \ma
 
 ---
 
-## 7. 图表与可视化
+## 7. 图表与可视化 (Charts & Visualization)
 
-### 7.1 网络结构示意图 (UML 类图风格)
+### 8.1 网络结构示意图 (UML 类图风格)
 
 ```mermaid
 classDiagram
@@ -213,7 +368,7 @@ classDiagram
     DynamicVAE ..> LossFunction : used by
 ```
 
-### 7.2 损失分解图 (Python 生成代码)
+### 8.2 损失分解图 (Python 生成代码)
 
 **读图指南**：此图展示了训练过程中总损失及其各分量（重构、KL、标签）的变化趋势，有助于诊断模型是否发生后验塌缩（KL过低）或重构失败。
 
@@ -241,7 +396,7 @@ plt.grid(True, alpha=0.3)
 plt.show()
 ```
 
-### 7.3 潜变量分布可视化 (t-SNE)
+### 8.3 潜变量分布可视化 (t-SNE)
 
 **读图指南**：此图展示了高维潜在变量 $z$ 降维后的分布。不同颜色代表不同类别的样本（如正常 vs 故障，或不同电池品牌）。若类别区分明显，说明 VAE 学习到了有判别力的特征。
 
@@ -278,7 +433,7 @@ plt.show()
 
 ---
 
-## 8. 实验复现最小清单
+## 8. 实验复现最小清单 (Reproduction Checklist)
 
 若要复现或修改实验，请关注以下文件和参数：
 
@@ -293,3 +448,161 @@ plt.show()
     -   定义 `encoder_dimension`, `decoder_dimension` 需与输入数据列数匹配。
 4.  **入口脚本**: `DyAD/main_five_fold.py`
     -   运行命令：`python main_five_fold.py --fold_num 0 --config_path ./params.json`
+
+---
+
+## 9. 关键等式汇总 (Key Equations)
+
+### 10.1 前向传播
+
+| 步骤 | 等式 |
+|-----|------|
+| 编码器 | $h = \text{RNN}_{\text{enc}}(x_{\text{enc}})$ |
+| 潜在均值 | $\mu = W_\mu h + b_\mu$ |
+| 潜在对数方差 | $\log \sigma^2 = W_{\log \sigma} h + b_{\log \sigma}$ |
+| 标准差 | $\sigma = \exp(0.5 \cdot \log \sigma^2)$ |
+| 重参数化 | $z = \mu + \sigma \cdot \epsilon, \quad \epsilon \sim \mathcal{N}(0, I)$ |
+| 解码器初始状态 | $h_0^{\text{dec}} = W_z z + b_z$ |
+| 解码器 | $o = \text{RNN}_{\text{dec}}(x_{\text{dec}}, h_0^{\text{dec}})$ |
+| 重构输出 | $\hat{x} = W_o o + b_o$ |
+| 标签预测 | $\hat{y} = \text{MLP}(\mu)$ |
+
+### 10.2 损失函数
+
+$$
+\begin{aligned}
+\mathcal{L}_{\text{NLL}} &= \frac{1}{B \cdot T \cdot O} \sum \text{SmoothL1}(\hat{x}, x) \\[10pt]
+\mathcal{L}_{\text{KL}} &= -\frac{1}{2} \sum_{i,j} \left( 1 + \log \sigma_{ij}^2 - \mu_{ij}^2 - \sigma_{ij}^2 \right) \\[10pt]
+\mathcal{L}_{\text{label}} &= \frac{1}{B} \sum_{i} \left( \hat{y}_i - y_i^{\text{norm}} \right)^2 \\[10pt]
+\mathcal{L}_{\text{total}} &= w_{\text{nll}} \cdot \mathcal{L}_{\text{NLL}} + w_{\text{label}} \cdot \mathcal{L}_{\text{label}} + w_{\text{kl}}(t) \cdot \frac{\mathcal{L}_{\text{KL}}}{B}
+\end{aligned}
+$$
+
+---
+
+## 10. 伪代码实现 (Pseudocode)
+
+```pseudocode
+# ============================================
+#  DynamicVAE: 带监督学习的动态变分自编码器
+# ============================================
+
+INPUT: 
+  - input_sequence: 时间序列 (batch, seq_len, features)
+  - encoder_filter: 编码器特征选择函数
+  - decoder_filter: 解码器特征选择函数
+  - seq_lengths: 序列长度列表 (用于变长序列)
+  - noise_scale: 噪声缩放因子 (默认 1.0)
+
+OUTPUT:
+  - log_p: 重构序列 (batch, seq_len, output_dim)
+  - mean: 潜在均值 (batch, latent_size)
+  - log_v: 潜在对数方差 (batch, latent_size)
+  - z: 采样的潜在向量 (batch, latent_size)
+  - mean_pred: 标签预测 (batch, 1)
+
+# -------- ENCODER 阶段 --------
+1. 提取编码器输入特征:
+   en_input = encoder_filter(input_sequence)  # (batch, seq, encoder_emb)
+
+2. 通过 Encoder RNN:
+   IF variable_length:
+       en_input = pack_padded_sequence(en_input, seq_lengths)
+   output, hidden = encoder_rnn(en_input)
+   
+3. 重塑隐藏状态为 2D:
+   IF bidirectional OR num_layers > 1:
+       hidden = reshape(hidden, [batch, hidden_size * hidden_factor])
+   ELSE:
+       hidden = squeeze(hidden)
+
+# -------- 变分推断阶段 --------
+4. 计算潜在分布参数:
+   mean = Linear_mean(hidden)           # (batch, latent_size)
+   log_v = Linear_log_v(hidden)         # (batch, latent_size)
+   std = exp(0.5 * log_v)
+
+5. 标签预测:
+   mean_pred = MLP(mean)                # (batch, 1)
+
+6. 重参数化采样:
+   epsilon ~ N(0, I)
+   IF training:
+       z = mean + std * epsilon * noise_scale
+   ELSE:
+       z = mean
+
+# -------- DECODER 阶段 --------
+7. 潜在向量到解码器初始隐藏状态:
+   hidden_dec = Linear_latent(z)       # (batch, hidden*factor)
+   IF bidirectional OR num_layers > 1:
+       hidden_dec = reshape(hidden_dec, [hidden_factor, batch, hidden_size])
+   ELSE:
+       hidden_dec = unsqueeze(hidden_dec, dim=0)
+
+8. 提取解码器输入特征:
+   de_input = decoder_filter(input_sequence)  # (batch, seq, decoder_emb)
+
+9. 通过 Decoder RNN:
+   IF variable_length:
+       de_input = pack_padded_sequence(de_input, seq_lengths)
+       outputs, _ = decoder_rnn(de_input, hidden_dec)
+       outputs = pad_packed_sequence(outputs)
+   ELSE:
+       outputs, _ = decoder_rnn(de_input, hidden_dec)
+
+10. 输出投影:
+    log_p = Linear_output(outputs)     # (batch, seq, output_dim)
+
+RETURN log_p, mean, log_v, z, mean_pred
+```
+
+---
+
+## 11. 数值稳定性代码实践 (Code Best Practices)
+
+以下是针对第 6 节提到的潜在问题的具体代码改进建议：
+
+### 11.1 防止对数方差溢出
+```python
+# 逐元素裁剪，避免极端值
+log_v = torch.clamp(log_v, min=-10, max=10)
+std = torch.exp(0.5 * log_v)
+```
+
+### 11.2 变长序列 Mask 处理
+在计算损失时使用 mask，避免 padding 部分污染梯度：
+```python
+def loss_fn(self, log_p, target, mean, log_v, seq_lengths=None):
+    if seq_lengths is not None:
+        # 创建 mask
+        max_len = log_p.size(1)
+        mask = torch.arange(max_len).expand(len(seq_lengths), max_len) < seq_lengths.unsqueeze(1)
+        mask = mask.unsqueeze(-1).to(log_p.device)
+        
+        # 仅计算有效位置的损失
+        diff = (log_p - target) * mask
+        nll_loss = F.smooth_l1_loss(diff, torch.zeros_like(diff), reduction='sum')
+        nll_loss /= mask.sum()  # 归一化
+    else:
+        nll_loss = F.smooth_l1_loss(log_p, target, reduction='mean')
+    
+    kl_loss = -0.5 * torch.sum(1 + log_v - mean.pow(2) - log_v.exp())
+    kl_weight = self.kl_anneal_function()
+    return nll_loss, kl_loss, kl_weight
+```
+
+### 11.3 标签归一化增强
+防止除零错误：
+```python
+# 添加数值稳定项
+norm_label = (i - self.min_mileage) / (self.max_mileage - self.min_mileage + 1e-8)
+```
+
+### 11.4 梯度裁剪
+在训练循环中添加：
+```python
+# 在 train.py 的优化器步骤前添加
+torch.nn.utils.clip_grad_norm_(model.parameters(), max_norm=1.0)
+optimizer.step()
+```
