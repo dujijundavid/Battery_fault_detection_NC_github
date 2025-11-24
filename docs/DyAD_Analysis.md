@@ -1,24 +1,39 @@
 # 动态 VAE（DyAD）深入解析
-- [1. 类/函数级剖析 (Class & Function Analysis)](#1-类函数级剖析-class--function-analysis)
-  - [1.1 `__init__` (初始化)](#11-init-初始化)
-  - [1.2 `forward` (前向传播)](#12-forward-前向传播)
-- [2. 前向传播数据流 (Forward Process)](#2-前向传播数据流-forward-process)
-  - [2.1 完整流程图](#21-完整流程图)
-  - [2.2 逐行代码流程](#22-逐行代码流程)
-- [3. 损失项公式与代码定位 (Loss Functions)](#3-损失项公式与代码定位-loss-functions)
-  - [3.1 重构误差 (Reconstruction Loss)](#31-重构误差-reconstruction-loss)
-  - [3.2 KL 散度 (KL Divergence)](#32-kl-散度-kl-divergence)
-  - [3.3 辅助任务/标签损失 (Label Loss)](#33-辅助任务标签损失-label-loss)
-  - [3.4 总损失 (Total Loss)](#34-总损失-total-loss)
-  - [3.5 损失计算总流程 (Loss Calculation Flow)](#35-损失计算总流程-loss-calculation-flow)
-- [4. 张量维度追踪表 (Tensor Dimension Tracking)](#4-张量维度追踪表-tensor-dimension-tracking)
-- [5. 数值稳定性与训练技巧 (Numerical Stability & Training Tips)](#5-数值稳定性与训练技巧-numerical-stability--training-tips)
-- [6. 与论文思想的映射 (Mapping to Paper)](#6-与论文思想的映射-mapping-to-paper)
-- [7. 图表与可视化 (Charts & Visualization)](#7-图表与可视化-charts--visualization)
-- [8. 实验复现最小清单 (Reproduction Checklist)](#8-实验复现最小清单-reproduction-checklist)
-- [9. 关键等式汇总 (Key Equations)](#9-关键等式汇总-key-equations)
-- [10. 伪代码实现 (Pseudocode)](#10-伪代码实现-pseudocode)
-- [11. 数值稳定性代码实践 (Code Best Practices)](#11-数值稳定性代码实践-code-best-practices)
+- [动态 VAE（DyAD）深入解析](#动态-vaedyad深入解析)
+  - [1. 类/函数级剖析 (Class \& Function Analysis)](#1-类函数级剖析-class--function-analysis)
+    - [1.1 `__init__` (初始化)](#11-__init__-初始化)
+    - [1.2 `forward` (前向传播)](#12-forward-前向传播)
+  - [2. 前向传播数据流 (Forward Process)](#2-前向传播数据流-forward-process)
+    - [2.1 完整流程图](#21-完整流程图)
+      - [2.1.1 高层数据流 (High-Level Data Flow)](#211-高层数据流-high-level-data-flow)
+      - [2.1.2 详细架构图 (Detailed Architecture)](#212-详细架构图-detailed-architecture)
+    - [2.2 逐行代码流程](#22-逐行代码流程)
+  - [3. 损失项公式与代码定位 (Loss Functions)](#3-损失项公式与代码定位-loss-functions)
+    - [3.1 重构误差 (Reconstruction Loss)](#31-重构误差-reconstruction-loss)
+    - [3.2 KL 散度 (KL Divergence)](#32-kl-散度-kl-divergence)
+    - [3.3 辅助任务/标签损失 (Label Loss)](#33-辅助任务标签损失-label-loss)
+    - [3.4 总损失 (Total Loss)](#34-总损失-total-loss)
+    - [3.5 损失计算总流程 (Loss Calculation Flow)](#35-损失计算总流程-loss-calculation-flow)
+  - [4. 张量维度追踪表 (Tensor Dimension Tracking)](#4-张量维度追踪表-tensor-dimension-tracking)
+    - [4.1 维度变换流向图 (Dimension Flow Chart)](#41-维度变换流向图-dimension-flow-chart)
+  - [5. 数值稳定性与训练技巧 (Numerical Stability \& Training Tips)](#5-数值稳定性与训练技巧-numerical-stability--training-tips)
+    - [潜在问题](#潜在问题)
+    - [改进建议 (5条)](#改进建议-5条)
+  - [6. 与论文思想的映射 (Mapping to Paper)](#6-与论文思想的映射-mapping-to-paper)
+  - [7. 图表与可视化 (Charts \& Visualization)](#7-图表与可视化-charts--visualization)
+    - [8.1 网络结构示意图 (UML 类图风格)](#81-网络结构示意图-uml-类图风格)
+    - [8.2 损失分解图 (Python 生成代码)](#82-损失分解图-python-生成代码)
+    - [8.3 潜变量分布可视化 (t-SNE)](#83-潜变量分布可视化-t-sne)
+  - [8. 实验复现最小清单 (Reproduction Checklist)](#8-实验复现最小清单-reproduction-checklist)
+  - [9. 关键等式汇总 (Key Equations)](#9-关键等式汇总-key-equations)
+    - [10.1 前向传播](#101-前向传播)
+    - [10.2 损失函数](#102-损失函数)
+  - [10. 伪代码实现 (Pseudocode)](#10-伪代码实现-pseudocode)
+  - [11. 数值稳定性代码实践 (Code Best Practices)](#11-数值稳定性代码实践-code-best-practices)
+    - [11.1 防止对数方差溢出](#111-防止对数方差溢出)
+    - [11.2 变长序列 Mask 处理](#112-变长序列-mask-处理)
+    - [11.3 标签归一化增强](#113-标签归一化增强)
+    - [11.4 梯度裁剪](#114-梯度裁剪)
 
 
 > 本文档面向开发者与研究者，深入剖析 DyAD（Dynamic Variational Autoencoder）模块的实现细节、数据流向及数学原理。
@@ -260,21 +275,21 @@ sequenceDiagram
 - `latent_size` ($L$) = 16
 - `num_layers` = 1, `bidirectional` = False
 
-| 阶段 | 变量名 | 维度 (Shape) | 说明 | 代码位置 |
-| :--- | :--- | :--- | :--- | :--- |
-| **输入** | `input_sequence` | $(B, T, F)$ | 原始输入批次 | `forward`:34 |
-| | `en_input_embedding` | $(B, T, F_{enc})$ | 编码器输入 | `forward`:37 |
-| **编码** | `output` | $(B, T, H)$ | RNN 所有时间步输出 | `forward`:40 |
-| | `hidden` | $(1, B, H)$ | RNN 最终隐藏状态 | `forward`:40 |
-| | `hidden` (squeezed) | $(B, H)$ | 展平用于全连接层 | `forward`:44 |
-| **潜在** | `mean` | $(B, L)$ | 潜在均值 | `forward`:46 |
-| | `log_v` | $(B, L)$ | 潜在对数方差 | `forward`:47 |
-| | `z` | $(B, L)$ | 采样后的潜在变量 | `forward`:51 |
-| **解码** | `hidden` (remapped) | $(1, B, H)$ | 解码器初始状态 | `forward`:61 |
-| | `de_input_embedding` | $(B, T, F_{dec})$ | 解码器输入 | `forward`:64 |
-| | `outputs` | $(B, T, H)$ | 解码器 RNN 输出 | `forward`:71 |
-| **输出** | `log_p` | $(B, T, F_{out})$ | 重构序列 | `forward`:72 |
-| **辅助** | `mean_pred` | $(B, 1)$ | 辅助预测值 | `forward`:49 |
+| 阶段     | 变量名               | 维度 (Shape)      | 说明               | 代码位置     |
+| :------- | :------------------- | :---------------- | :----------------- | :----------- |
+| **输入** | `input_sequence`     | $(B, T, F)$       | 原始输入批次       | `forward`:34 |
+|          | `en_input_embedding` | $(B, T, F_{enc})$ | 编码器输入         | `forward`:37 |
+| **编码** | `output`             | $(B, T, H)$       | RNN 所有时间步输出 | `forward`:40 |
+|          | `hidden`             | $(1, B, H)$       | RNN 最终隐藏状态   | `forward`:40 |
+|          | `hidden` (squeezed)  | $(B, H)$          | 展平用于全连接层   | `forward`:44 |
+| **潜在** | `mean`               | $(B, L)$          | 潜在均值           | `forward`:46 |
+|          | `log_v`              | $(B, L)$          | 潜在对数方差       | `forward`:47 |
+|          | `z`                  | $(B, L)$          | 采样后的潜在变量   | `forward`:51 |
+| **解码** | `hidden` (remapped)  | $(1, B, H)$       | 解码器初始状态     | `forward`:61 |
+|          | `de_input_embedding` | $(B, T, F_{dec})$ | 解码器输入         | `forward`:64 |
+|          | `outputs`            | $(B, T, H)$       | 解码器 RNN 输出    | `forward`:71 |
+| **输出** | `log_p`              | $(B, T, F_{out})$ | 重构序列           | `forward`:72 |
+| **辅助** | `mean_pred`          | $(B, 1)$          | 辅助预测值         | `forward`:49 |
 
 ### 4.1 维度变换流向图 (Dimension Flow Chart)
 
@@ -329,12 +344,12 @@ graph TD
 
 ## 6. 与论文思想的映射 (Mapping to Paper)
 
-| 论文思想 | 代码实现映射 | 说明 |
-| :--- | :--- | :--- |
-| **动态系统建模** | `encoder_rnn` / `decoder_rnn` | 使用 LSTM/GRU 捕捉电池数据的时间依赖性和动态演变。 |
-| **潜在状态推断** | `hidden2mean`, `hidden2log_v`, `Sample` | 变分推断框架，将高维时序数据映射到低维随机流形（Latent Manifold）。 |
-| **多任务/辅助学习** | `mean2latent` | 利用潜在变量预测 SOH/里程，强制潜在空间包含物理上有意义的信息，而不仅仅是重构。 |
-| **社会/经济因素** | `dataset.py` / `tasks.py` | 代码本身是通用的 VAE。如果社会经济因素作为输入特征存在，它们会包含在 `input_sequence` 中，由 `encoder_embedding_size` 决定输入维度。需检查数据预处理阶段是否将这些因子拼接到了输入向量中。 |
+| 论文思想            | 代码实现映射                            | 说明                                                                                                                                                                                       |
+| :------------------ | :-------------------------------------- | :----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **动态系统建模**    | `encoder_rnn` / `decoder_rnn`           | 使用 LSTM/GRU 捕捉电池数据的时间依赖性和动态演变。                                                                                                                                         |
+| **潜在状态推断**    | `hidden2mean`, `hidden2log_v`, `Sample` | 变分推断框架，将高维时序数据映射到低维随机流形（Latent Manifold）。                                                                                                                        |
+| **多任务/辅助学习** | `mean2latent`                           | 利用潜在变量预测 SOH/里程，强制潜在空间包含物理上有意义的信息，而不仅仅是重构。                                                                                                            |
+| **社会/经济因素**   | `dataset.py` / `tasks.py`               | 代码本身是通用的 VAE。如果社会经济因素作为输入特征存在，它们会包含在 `input_sequence` 中，由 `encoder_embedding_size` 决定输入维度。需检查数据预处理阶段是否将这些因子拼接到了输入向量中。 |
 
 ---
 
@@ -455,17 +470,17 @@ plt.show()
 
 ### 10.1 前向传播
 
-| 步骤 | 等式 |
-|-----|------|
-| 编码器 | $h = \text{RNN}_{\text{enc}}(x_{\text{enc}})$ |
-| 潜在均值 | $\mu = W_\mu h + b_\mu$ |
-| 潜在对数方差 | $\log \sigma^2 = W_{\log \sigma} h + b_{\log \sigma}$ |
-| 标准差 | $\sigma = \exp(0.5 \cdot \log \sigma^2)$ |
-| 重参数化 | $z = \mu + \sigma \cdot \epsilon, \quad \epsilon \sim \mathcal{N}(0, I)$ |
-| 解码器初始状态 | $h_0^{\text{dec}} = W_z z + b_z$ |
-| 解码器 | $o = \text{RNN}_{\text{dec}}(x_{\text{dec}}, h_0^{\text{dec}})$ |
-| 重构输出 | $\hat{x} = W_o o + b_o$ |
-| 标签预测 | $\hat{y} = \text{MLP}(\mu)$ |
+| 步骤           | 等式                                                                     |
+| -------------- | ------------------------------------------------------------------------ |
+| 编码器         | $h = \text{RNN}_{\text{enc}}(x_{\text{enc}})$                            |
+| 潜在均值       | $\mu = W_\mu h + b_\mu$                                                  |
+| 潜在对数方差   | $\log \sigma^2 = W_{\log \sigma} h + b_{\log \sigma}$                    |
+| 标准差         | $\sigma = \exp(0.5 \cdot \log \sigma^2)$                                 |
+| 重参数化       | $z = \mu + \sigma \cdot \epsilon, \quad \epsilon \sim \mathcal{N}(0, I)$ |
+| 解码器初始状态 | $h_0^{\text{dec}} = W_z z + b_z$                                         |
+| 解码器         | $o = \text{RNN}_{\text{dec}}(x_{\text{dec}}, h_0^{\text{dec}})$          |
+| 重构输出       | $\hat{x} = W_o o + b_o$                                                  |
+| 标签预测       | $\hat{y} = \text{MLP}(\mu)$                                              |
 
 ### 10.2 损失函数
 

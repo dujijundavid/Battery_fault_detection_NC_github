@@ -208,11 +208,11 @@ sequenceDiagram
     deactivate Model
     
     activate Loss
-    Loss->>Loss: 计算重构误差<br/>L_recon = |x - x̂|
+    Loss->>Loss: 计算重构误差<br/>L_recon = MSE(x, x̂)
     Loss->>Loss: 计算KL散度<br/>L_KL = KL(q(z|x) || p(z))
-    Loss->>Loss: 计算标签误差<br/>L_label = |y - ŷ|
-    Loss->>Loss: 总损失<br/>L = w₁·L_recon + w₂·L_KL + w₃·L_label
-    Loss-->>Opt: 总损失 L
+    Loss->>Loss: 计算标签误差<br/>L_label = MSE(y, ŷ)
+    Loss->>Loss: 总损失<br/>L = w1*L_recon + w2*L_KL + w3*L_label
+    Loss->>Opt: 总损失L
     deactivate Loss
     
     Opt->>Model: 反向传播，更新参数

@@ -20,30 +20,30 @@
 
 ### 1.1 顶层目录
 
-| 目录/文件 | 职责 | 核心类/函数 | 关键超参数 |
-|---------|------|------------|-----------|
-| [`DyAD/`](../DyAD) | **主算法实现目录**，包含Dynamic VAE模型、训练、评估、特征提取 | `DynamicVAE`, `Train_fivefold`, `Extraction`, `Evaluate` | `latent_size`, `hidden_size`, `nll_weight`, `use_flag` |
-| [`data/`](../data) | 数据存储目录，包含五折交叉验证的训练/测试集分割信息 | - | - |
-| [`five_fold_utils/`](../five_fold_utils) | 五折交叉验证工具，存储车辆ID分组字典 | - | - |
-| [`notebooks/`](../notebooks) | Jupyter笔记本，用于评估和阈值分析 | - | - |
-| [`AE_and_SVDD/`](../AE_and_SVDD) | Baseline对比方法：自编码器和SVDD | - | - |
-| [`GDN_battery/`](../GDN_battery) | Baseline对比方法：图偏差网络(Graph Deviation Network) | - | - |
-| [`Recurrent-Autoencoder-modify/`](../Recurrent-Autoencoder-modify) | Baseline对比方法：递归自编码器 | - | - |
-| [`GP/`](../GP) | Baseline对比方法：高斯过程 | - | - |
+| 目录/文件                                                          | 职责                                                          | 核心类/函数                                              | 关键超参数                                             |
+| ------------------------------------------------------------------ | ------------------------------------------------------------- | -------------------------------------------------------- | ------------------------------------------------------ |
+| [`DyAD/`](../DyAD)                                                 | **主算法实现目录**，包含Dynamic VAE模型、训练、评估、特征提取 | `DynamicVAE`, `Train_fivefold`, `Extraction`, `Evaluate` | `latent_size`, `hidden_size`, `nll_weight`, `use_flag` |
+| [`data/`](../data)                                                 | 数据存储目录，包含五折交叉验证的训练/测试集分割信息           | -                                                        | -                                                      |
+| [`five_fold_utils/`](../five_fold_utils)                           | 五折交叉验证工具，存储车辆ID分组字典                          | -                                                        | -                                                      |
+| [`notebooks/`](../notebooks)                                       | Jupyter笔记本，用于评估和阈值分析                             | -                                                        | -                                                      |
+| [`AE_and_SVDD/`](../AE_and_SVDD)                                   | Baseline对比方法：自编码器和SVDD                              | -                                                        | -                                                      |
+| [`GDN_battery/`](../GDN_battery)                                   | Baseline对比方法：图偏差网络(Graph Deviation Network)         | -                                                        | -                                                      |
+| [`Recurrent-Autoencoder-modify/`](../Recurrent-Autoencoder-modify) | Baseline对比方法：递归自编码器                                | -                                                        | -                                                      |
+| [`GP/`](../GP)                                                     | Baseline对比方法：高斯过程                                    | -                                                        | -                                                      |
 
 ### 1.2 DyAD 核心文件详解
 
-| 文件 | 职责 | 核心类/函数 | 输入→输出 | 关键代码行 |
-|------|------|------------|----------|----------|
-| [`main_five_fold.py`](../DyAD/main_five_fold.py) | **五折训练入口**，协调训练→提取→评估流程 | `main` | `--config_path`, `--fold_num` → 保存模型、特征、评分CSV | L10-L53 |
-| [`train.py`](../DyAD/train.py) | **训练主逻辑**，包含数据加载、模型训练、损失函数 | `Train_fivefold`, `loss_fn`, `kl_anneal_function` | 训练数据 → 训练好的模型(`.torch`) + 归一化器(`.pkl`) | L74-L183 (main), L203-L216 (loss_fn) |
-| [`model/dynamic_vae.py`](../DyAD/model/dynamic_vae.py) | **DynamicVAE模型定义** | `DynamicVAE`, `forward` | `input_sequence [B,T,F]` → `log_p [B,T,O]`, `mean [B,Z]`, `log_v [B,Z]` | L34-L73 (forward) |
-| [`model/dataset.py`](../DyAD/model/dataset.py) | **数据集加载器**，基于五折分组加载车辆数据 | `Dataset` | `data_path`, `fold_num` → PyTorch Dataset | L13-L42 (__init__) |
-| [`model/tasks.py`](../DyAD/model/tasks.py) | **特征选择器**，定义编码器/解码器使用哪些传感器特征 | `Task`, `BatterybrandaTask`, `encoder_filter`, `decoder_filter` | 输入序列 → 筛选后的特征 | L55-L67 |
-| [`extract.py`](../DyAD/extract.py) | **特征提取器**，从训练好的模型提取潜在表示 | `Extraction`, `extract` | 测试数据 + 模型 → 特征文件(`.npy` + `.file`) | L27-L66 |
-| [`evaluate.py`](../DyAD/evaluate.py) | **评估器**，计算异常分数并生成排序结果 | `Evaluate`, `calculate_rec_error` | 特征 + 标签 → `train_segment_scores.csv`, `test_segment_scores.csv` | L43-L56 |
-| [`utils.py`](../DyAD/utils.py) | **工具函数**：归一化、GPU封装、数据校验 | `Normalizer`, `to_var`, `collate` | 原始数据 → 归一化数据 | L105-L138 (Normalizer) |
-| [`model_params_battery_brand{1,2,3}.json`](../DyAD/model_params_battery_brand1.json) | **配置文件**，定义训练超参数、路径、任务类型 | - | - | 全文 |
+| 文件                                                                                 | 职责                                                | 核心类/函数                                                     | 输入→输出                                                               | 关键代码行                           |
+| ------------------------------------------------------------------------------------ | --------------------------------------------------- | --------------------------------------------------------------- | ----------------------------------------------------------------------- | ------------------------------------ |
+| [`main_five_fold.py`](../DyAD/main_five_fold.py)                                     | **五折训练入口**，协调训练→提取→评估流程            | `main`                                                          | `--config_path`, `--fold_num` → 保存模型、特征、评分CSV                 | L10-L53                              |
+| [`train.py`](../DyAD/train.py)                                                       | **训练主逻辑**，包含数据加载、模型训练、损失函数    | `Train_fivefold`, `loss_fn`, `kl_anneal_function`               | 训练数据 → 训练好的模型(`.torch`) + 归一化器(`.pkl`)                    | L74-L183 (main), L203-L216 (loss_fn) |
+| [`model/dynamic_vae.py`](../DyAD/model/dynamic_vae.py)                               | **DynamicVAE模型定义**                              | `DynamicVAE`, `forward`                                         | `input_sequence [B,T,F]` → `log_p [B,T,O]`, `mean [B,Z]`, `log_v [B,Z]` | L34-L73 (forward)                    |
+| [`model/dataset.py`](../DyAD/model/dataset.py)                                       | **数据集加载器**，基于五折分组加载车辆数据          | `Dataset`                                                       | `data_path`, `fold_num` → PyTorch Dataset                               | L13-L42 (__init__)                   |
+| [`model/tasks.py`](../DyAD/model/tasks.py)                                           | **特征选择器**，定义编码器/解码器使用哪些传感器特征 | `Task`, `BatterybrandaTask`, `encoder_filter`, `decoder_filter` | 输入序列 → 筛选后的特征                                                 | L55-L67                              |
+| [`extract.py`](../DyAD/extract.py)                                                   | **特征提取器**，从训练好的模型提取潜在表示          | `Extraction`, `extract`                                         | 测试数据 + 模型 → 特征文件(`.npy` + `.file`)                            | L27-L66                              |
+| [`evaluate.py`](../DyAD/evaluate.py)                                                 | **评估器**，计算异常分数并生成排序结果              | `Evaluate`, `calculate_rec_error`                               | 特征 + 标签 → `train_segment_scores.csv`, `test_segment_scores.csv`     | L43-L56                              |
+| [`utils.py`](../DyAD/utils.py)                                                       | **工具函数**：归一化、GPU封装、数据校验             | `Normalizer`, `to_var`, `collate`                               | 原始数据 → 归一化数据                                                   | L105-L138 (Normalizer)               |
+| [`model_params_battery_brand{1,2,3}.json`](../DyAD/model_params_battery_brand1.json) | **配置文件**，定义训练超参数、路径、任务类型        | -                                                               | -                                                                       | 全文                                 |
 
 ### 1.3 数据结构：data/ 目录
 
@@ -71,10 +71,10 @@ data/
 
 ### 1.4 五折交叉验证工具
 
-| 文件名 | 内容 | 用途 |
-|--------|------|------|
-| [`five_fold_utils/YOUR_all_car_dict.npz.npy`](../five_fold_utils/YOUR_all_car_dict.npz.npy) | 字典：`{car_id: [pkl文件路径列表]}` | 映射每个车辆ID到其所有数据文件 |
-| `five_fold_utils/ind_odd_dict{1,2,3}.npz.npy` | 字典：`{'ind_sorted': [车辆ID], 'ood_sorted': [异常车辆ID]}` | 定义每折的训练集(ind)和测试集(ood) |
+| 文件名                                                                                      | 内容                                                         | 用途                               |
+| ------------------------------------------------------------------------------------------- | ------------------------------------------------------------ | ---------------------------------- |
+| [`five_fold_utils/YOUR_all_car_dict.npz.npy`](../five_fold_utils/YOUR_all_car_dict.npz.npy) | 字典：`{car_id: [pkl文件路径列表]}`                          | 映射每个车辆ID到其所有数据文件     |
+| `five_fold_utils/ind_odd_dict{1,2,3}.npz.npy`                                               | 字典：`{'ind_sorted': [车辆ID], 'ood_sorted': [异常车辆ID]}` | 定义每折的训练集(ind)和测试集(ood) |
 
 **五折分割逻辑** ([dataset.py:L25-L32](../DyAD/model/dataset.py#L25-L32))：
 - **训练集**：`fold_num` 之前 + 之后的 80% 车辆
@@ -176,17 +176,17 @@ graph LR
 
 ### 依赖关系说明
 
-| 调用者 | 被调用者 | 函数/类 | 作用 |
-|--------|---------|---------|------|
-| `main_five_fold.py` | `train.Train_fivefold` | `main()` | 训练模型并返回模型路径 |
-| `main_five_fold.py` | `extract.Extraction` | `main()` | 从模型提取测试集特征 |
-| `main_five_fold.py` | `evaluate.Evaluate` | `main()` | 计算异常分数并保存CSV |
-| `train.py` | `DynamicVAE` | `forward()` | 执行VAE前向传播 |
-| `train.py` | `Dataset` | `__getitem__()` | 按索引加载单个样本 |
-| `train.py` | `Task` | `encoder_filter(), decoder_filter()` | 筛选输入特征 |
-| `train.py` | `Normalizer` | `norm_func()` | 数据归一化 |
-| `extract.py` | `PreprocessNormalizer` | `__getitem__()` | 归一化测试数据 |
-| `evaluate.py` | `get_feature_label()` | 静态方法 | 从 `.npy` 和 `.file` 加载特征+标签 |
+| 调用者              | 被调用者               | 函数/类                              | 作用                               |
+| ------------------- | ---------------------- | ------------------------------------ | ---------------------------------- |
+| `main_five_fold.py` | `train.Train_fivefold` | `main()`                             | 训练模型并返回模型路径             |
+| `main_five_fold.py` | `extract.Extraction`   | `main()`                             | 从模型提取测试集特征               |
+| `main_five_fold.py` | `evaluate.Evaluate`    | `main()`                             | 计算异常分数并保存CSV              |
+| `train.py`          | `DynamicVAE`           | `forward()`                          | 执行VAE前向传播                    |
+| `train.py`          | `Dataset`              | `__getitem__()`                      | 按索引加载单个样本                 |
+| `train.py`          | `Task`                 | `encoder_filter(), decoder_filter()` | 筛选输入特征                       |
+| `train.py`          | `Normalizer`           | `norm_func()`                        | 数据归一化                         |
+| `extract.py`        | `PreprocessNormalizer` | `__getitem__()`                      | 归一化测试数据                     |
+| `evaluate.py`       | `get_feature_label()`  | 静态方法                             | 从 `.npy` 和 `.file` 加载特征+标签 |
 
 ---
 
@@ -194,23 +194,23 @@ graph LR
 
 基于 [`model_params_battery_brand1.json`](../DyAD/model_params_battery_brand1.json)：
 
-| 超参数 | 默认值 | 含义 | 对训练/评分的影响 | 代码位置 |
-|--------|--------|------|------------------|----------|
-| **`latent_size`** | `8` | 潜在空间维度 | **↑** 增大 → 表示能力更强，但过拟合风险增加 | [dynamic_vae.py:L13](../DyAD/model/dynamic_vae.py#L13) |
-| **`hidden_size`** | `128` | RNN隐藏层维度 | **↑** 增大 → 模型容量↑，训练时间↑，需更多数据 | [dynamic_vae.py:L16](../DyAD/model/dynamic_vae.py#L16) |
-| **`rnn_type`** | `"gru"` | RNN类型 | 可选 `rnn`, `lstm`, `gru`；GRU训练更快，LSTM记忆能力更强 | [dynamic_vae.py:L18](../DyAD/model/dynamic_vae.py#L18) |
-| **`num_layers`** | `2` | RNN层数 | **↑** 增大 → 建模复杂动态能力增强，但梯度消失风险↑ | [dynamic_vae.py:L15](../DyAD/model/dynamic_vae.py#L15) |
-| **`bidirectional`** | `true` | 是否双向RNN | `true` → 参数量x2，需前向+后向信息（不适用实时推理） | [dynamic_vae.py:L14](../DyAD/model/dynamic_vae.py#L14) |
-| **`nll_weight`** | `10` | 重构损失权重 | **↑** 增大 → 强调重构精度，异常检测更敏感；**↓** 减小 → 更依赖KL正则化 | [train.py:L210](../DyAD/train.py#L210) |
-| **`anneal0`** | `0.01` | KL权重初始值 | **从此值开始**逐渐退火到1.0，缓解KL散度初期主导损失 | [train.py:L218-L227](../DyAD/train.py#L218-L227) |
-| **`anneal_function`** | `"linear"` | 退火函数类型 | `linear` → 线性增长；`logistic` → S型增长（更平滑） | [train.py:L220-L226](../DyAD/train.py#L220-L226) |
-| **`k`** | `0.0025` | logistic函数斜率 | 仅在 `anneal_function="logistic"` 时生效，控制增长速度 | [train.py:L223](../DyAD/train.py#L223) |
-| **`x0`** | `500` | logistic函数中心点 | 在第 `x0` 个epoch达到中间值（0.5左右） | [train.py:L223](../DyAD/train.py#L223) |
-| **`use_flag`** | `"rec_error"` | 异常评分方式 | `rec_error` → 重构误差；`l2norm` → L2范数；`copod_score` → COPOD算法 | [evaluate.py:L52](../DyAD/evaluate.py#L52) |
-| **`noise_scale`** | `1` | 训练时潜在空间噪声缩放 | **↑** 增大 → 增强鲁棒性，但可能降低重构精度 | [dynamic_vae.py:L56](../DyAD/model/dynamic_vae.py#L56) |
-| **`batch_size`** | `128` | 批大小 | **↑** 增大 → 训练稳定，但需更多显存；**↓** 减小 → 梯度估计噪声大 | [train.py](../DyAD/train.py) |
-| **`learning_rate`** | `0.005` | 初始学习率 | 配合 `CosineAnnealingLR` 调度器衰减到 `cosine_factor * lr` | [train.py](../DyAD/train.py) |
-| **`epochs`** | `3` | 训练轮数 | **警告**：仅3轮可能欠拟合！实际应用建议50-100轮 | [model_params_battery_brand1.json:L4](../DyAD/model_params_battery_brand1.json#L4) |
+| 超参数                | 默认值        | 含义                   | 对训练/评分的影响                                                      | 代码位置                                                                           |
+| --------------------- | ------------- | ---------------------- | ---------------------------------------------------------------------- | ---------------------------------------------------------------------------------- |
+| **`latent_size`**     | `8`           | 潜在空间维度           | **↑** 增大 → 表示能力更强，但过拟合风险增加                            | [dynamic_vae.py:L13](../DyAD/model/dynamic_vae.py#L13)                             |
+| **`hidden_size`**     | `128`         | RNN隐藏层维度          | **↑** 增大 → 模型容量↑，训练时间↑，需更多数据                          | [dynamic_vae.py:L16](../DyAD/model/dynamic_vae.py#L16)                             |
+| **`rnn_type`**        | `"gru"`       | RNN类型                | 可选 `rnn`, `lstm`, `gru`；GRU训练更快，LSTM记忆能力更强               | [dynamic_vae.py:L18](../DyAD/model/dynamic_vae.py#L18)                             |
+| **`num_layers`**      | `2`           | RNN层数                | **↑** 增大 → 建模复杂动态能力增强，但梯度消失风险↑                     | [dynamic_vae.py:L15](../DyAD/model/dynamic_vae.py#L15)                             |
+| **`bidirectional`**   | `true`        | 是否双向RNN            | `true` → 参数量x2，需前向+后向信息（不适用实时推理）                   | [dynamic_vae.py:L14](../DyAD/model/dynamic_vae.py#L14)                             |
+| **`nll_weight`**      | `10`          | 重构损失权重           | **↑** 增大 → 强调重构精度，异常检测更敏感；**↓** 减小 → 更依赖KL正则化 | [train.py:L210](../DyAD/train.py#L210)                                             |
+| **`anneal0`**         | `0.01`        | KL权重初始值           | **从此值开始**逐渐退火到1.0，缓解KL散度初期主导损失                    | [train.py:L218-L227](../DyAD/train.py#L218-L227)                                   |
+| **`anneal_function`** | `"linear"`    | 退火函数类型           | `linear` → 线性增长；`logistic` → S型增长（更平滑）                    | [train.py:L220-L226](../DyAD/train.py#L220-L226)                                   |
+| **`k`**               | `0.0025`      | logistic函数斜率       | 仅在 `anneal_function="logistic"` 时生效，控制增长速度                 | [train.py:L223](../DyAD/train.py#L223)                                             |
+| **`x0`**              | `500`         | logistic函数中心点     | 在第 `x0` 个epoch达到中间值（0.5左右）                                 | [train.py:L223](../DyAD/train.py#L223)                                             |
+| **`use_flag`**        | `"rec_error"` | 异常评分方式           | `rec_error` → 重构误差；`l2norm` → L2范数；`copod_score` → COPOD算法   | [evaluate.py:L52](../DyAD/evaluate.py#L52)                                         |
+| **`noise_scale`**     | `1`           | 训练时潜在空间噪声缩放 | **↑** 增大 → 增强鲁棒性，但可能降低重构精度                            | [dynamic_vae.py:L56](../DyAD/model/dynamic_vae.py#L56)                             |
+| **`batch_size`**      | `128`         | 批大小                 | **↑** 增大 → 训练稳定，但需更多显存；**↓** 减小 → 梯度估计噪声大       | [train.py](../DyAD/train.py)                                                       |
+| **`learning_rate`**   | `0.005`       | 初始学习率             | 配合 `CosineAnnealingLR` 调度器衰减到 `cosine_factor * lr`             | [train.py](../DyAD/train.py)                                                       |
+| **`epochs`**          | `3`           | 训练轮数               | **警告**：仅3轮可能欠拟合！实际应用建议50-100轮                        | [model_params_battery_brand1.json:L4](../DyAD/model_params_battery_brand1.json#L4) |
 
 ### 超参数调优建议
 
@@ -230,16 +230,16 @@ graph LR
 
 ### 5.1 环境依赖
 
-| 组件 | 版本要求 | 检查方法 | 备注 |
-|------|---------|---------|------|
-| **Python** | 3.7+ | `python --version` | 推荐 3.8-3.9 |
-| **PyTorch** | 1.8+ | `python -c "import torch; print(torch.__version__)"` | 需支持 `pack_padded_sequence` |
-| **CUDA** | 10.2+ (可选) | `nvcc --version` 或 `nvidia-smi` | CPU训练也可运行，但慢10x+ |
-| **torch-geometric** | - | - | **仅 GDN baseline 需要**，DyAD 不依赖 |
-| **pyod** | 最新 | `pip install pyod` | 用于 IForest 异常检测（evaluate.py导入但未使用） |
-| **scikit-learn** | 0.24+ | `pip install scikit-learn` | 用于 `confusion_matrix` |
-| **tqdm** | 最新 | `pip install tqdm` | 进度条 |
-| **numpy, pandas** | 最新 | `pip install numpy pandas` | 数据处理 |
+| 组件                | 版本要求     | 检查方法                                             | 备注                                             |
+| ------------------- | ------------ | ---------------------------------------------------- | ------------------------------------------------ |
+| **Python**          | 3.7+         | `python --version`                                   | 推荐 3.8-3.9                                     |
+| **PyTorch**         | 1.8+         | `python -c "import torch; print(torch.__version__)"` | 需支持 `pack_padded_sequence`                    |
+| **CUDA**            | 10.2+ (可选) | `nvcc --version` 或 `nvidia-smi`                     | CPU训练也可运行，但慢10x+                        |
+| **torch-geometric** | -            | -                                                    | **仅 GDN baseline 需要**，DyAD 不依赖            |
+| **pyod**            | 最新         | `pip install pyod`                                   | 用于 IForest 异常检测（evaluate.py导入但未使用） |
+| **scikit-learn**    | 0.24+        | `pip install scikit-learn`                           | 用于 `confusion_matrix`                          |
+| **tqdm**            | 最新         | `pip install tqdm`                                   | 进度条                                           |
+| **numpy, pandas**   | 最新         | `pip install numpy pandas`                           | 数据处理                                         |
 
 **安装命令**：
 ```bash
@@ -265,11 +265,11 @@ ls data/battery_brand1/
 > [!CAUTION]
 > **关键坑位**：代码中硬编码了相对路径，必须从 `DyAD/` 目录运行！
 
-| 文件 | 依赖路径 | 问题 | 解决方案 |
-|------|---------|------|----------|
-| [dataset.py:L13](../DyAD/model/dataset.py#L13) | `'../five_fold_utils/all_car_dict.npz.npy'` | 默认假设从 `DyAD/` 执行 | 修改为绝对路径或检查 `os.getcwd()` |
-| [model_params_battery_brand1.json:L34-L36](../DyAD/model_params_battery_brand1.json#L34-L36) | `"../data/battery_brand1/train"` | 同上 | 配置文件中使用绝对路径 |
-| [main_five_fold.py:L11](../DyAD/main_five_fold.py#L11) | `'./params.json'` | 默认配置文件 | 通过 `--config_path` 参数指定 |
+| 文件                                                                                         | 依赖路径                                    | 问题                    | 解决方案                           |
+| -------------------------------------------------------------------------------------------- | ------------------------------------------- | ----------------------- | ---------------------------------- |
+| [dataset.py:L13](../DyAD/model/dataset.py#L13)                                               | `'../five_fold_utils/all_car_dict.npz.npy'` | 默认假设从 `DyAD/` 执行 | 修改为绝对路径或检查 `os.getcwd()` |
+| [model_params_battery_brand1.json:L34-L36](../DyAD/model_params_battery_brand1.json#L34-L36) | `"../data/battery_brand1/train"`            | 同上                    | 配置文件中使用绝对路径             |
+| [main_five_fold.py:L11](../DyAD/main_five_fold.py#L11)                                       | `'./params.json'`                           | 默认配置文件            | 通过 `--config_path` 参数指定      |
 
 **推荐运行方式**：
 ```bash
@@ -304,24 +304,24 @@ python main_five_fold.py --config_path model_params_battery_brand1.json --fold_n
 
 ### 5.4 内存/显存占用估算
 
-| 资源 | 估算公式 | 示例（batch_size=128, hidden_size=128, latent_size=8） |
-|------|---------|--------------------------------------------------|
-| **显存（训练）** | `batch_size * seq_len * hidden_size * 4 * num_layers * 8 bytes` | ~128MB (序列长度100) |
-| **内存（数据）** | `len(dataset) * avg_seq_len * num_features * 4 bytes` | ~1GB（1000个样本，平均长度1000） |
-| **模型参数** | `hidden_size^2 * num_layers * 3 (GRU门) * 2 (双向)` | ~1M参数 ≈ 4MB |
+| 资源             | 估算公式                                                        | 示例（batch_size=128, hidden_size=128, latent_size=8） |
+| ---------------- | --------------------------------------------------------------- | ------------------------------------------------------ |
+| **显存（训练）** | `batch_size * seq_len * hidden_size * 4 * num_layers * 8 bytes` | ~128MB (序列长度100)                                   |
+| **内存（数据）** | `len(dataset) * avg_seq_len * num_features * 4 bytes`           | ~1GB（1000个样本，平均长度1000）                       |
+| **模型参数**     | `hidden_size^2 * num_layers * 3 (GRU门) * 2 (双向)`             | ~1M参数 ≈ 4MB                                          |
 
 **峰值显存** ≈ 500MB-2GB（取决于数据集大小）
 
 ### 5.5 常见报错与规避
 
-| 错误信息 | 原因 | 解决方案 |
-|---------|------|----------|
-| `FileNotFoundError: ../five_fold_utils/...` | 未从 `DyAD/` 目录运行 | `cd DyAD && python main_five_fold.py ...` |
-| `RuntimeError: size mismatch` | 特征维度与模型配置不符 | 检查 `tasks.py` 中 `encoder_dimension` 是否匹配PKL数据列数 |
-| `KeyError: 'label'` | PKL文件缺失元数据字段 | 确保所有PKL包含 `metadata['label']` 和 `metadata['car']` |
-| `CUDA out of memory` | 显存不足 | 减小 `batch_size` 或 `hidden_size` |
-| `ValueError: num train is 0` | 五折分组中无训练数据 | 检查 `fold_num` 是否在 [0, 4] 范围内，或数据字典是否正确 |
-| `AssertionError in config_valid` | 配置参数类型错误 | 参考 [utils.py:L10-L64](../DyAD/utils.py#L10-L64) 修复JSON配置 |
+| 错误信息                                    | 原因                   | 解决方案                                                       |
+| ------------------------------------------- | ---------------------- | -------------------------------------------------------------- |
+| `FileNotFoundError: ../five_fold_utils/...` | 未从 `DyAD/` 目录运行  | `cd DyAD && python main_five_fold.py ...`                      |
+| `RuntimeError: size mismatch`               | 特征维度与模型配置不符 | 检查 `tasks.py` 中 `encoder_dimension` 是否匹配PKL数据列数     |
+| `KeyError: 'label'`                         | PKL文件缺失元数据字段  | 确保所有PKL包含 `metadata['label']` 和 `metadata['car']`       |
+| `CUDA out of memory`                        | 显存不足               | 减小 `batch_size` 或 `hidden_size`                             |
+| `ValueError: num train is 0`                | 五折分组中无训练数据   | 检查 `fold_num` 是否在 [0, 4] 范围内，或数据字典是否正确       |
+| `AssertionError in config_valid`            | 配置参数类型错误       | 参考 [utils.py:L10-L64](../DyAD/utils.py#L10-L64) 修复JSON配置 |
 
 ---
 
