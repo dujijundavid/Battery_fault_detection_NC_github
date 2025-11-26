@@ -1,0 +1,117 @@
+# Battery Data Processing Configuration
+# This file contains all parameters for the data processing pipeline
+
+# =============================================================================
+# Data Paths
+# =============================================================================
+data:
+  # Input directory containing vehicle parquet files
+  # Structure: input_path/car_name/*.parquet
+  input: /Volumes/conf/dl/vol_prediction-rdeb-yifshen_common_blob/203_Validation_new/
+  
+  # Output directory for processed data (Delta Lake format)
+  output: /Volumes/conf/dl/vol_prediction-rdeb-yifshen_common_blob/203_Validation_output/
+
+# =============================================================================
+# Dataset Configuration
+# =============================================================================
+dataset:
+  # Dataset type: "train" or "test"
+  type: test
+  
+  # Label for this dataset: "0" (normal) or "1" (anomaly)
+  label: "0"
+  
+  # Time range configuration (relative to anchor point - max timestamp in data)
+  time_range:
+    # How many months ago should the end date be (0 = use most recent data)
+    end_months_ago: 0
+    
+    # How many months of data to cover (from end date backwards)
+    cover_months: 36
+  
+  # Timezone for date alignment
+  timezone: UTC
+  
+  # Optional: Whitelist of specific vehicles to process (empty = process all)
+  # Can be comma-separated list: "car1,car2,car3"
+  # Or regex pattern: ".*_3[0-9]{3}"
+  car_whitelist: ""
+
+# =============================================================================
+# Feature Engineering Parameters
+# =============================================================================
+features:
+  # Sliding window parameters
+  window_length: 40      # Number of time steps in each window
+  window_interval: 2     # Stride between consecutive windows
+  sampling_rate: 30      # Target sampling interval in seconds
+  
+  # Charging segment identification
+  charging:
+    # Required charging status value
+    status: CHARGING_IN_PARKING
+    
+    # Minimum current threshold (A) to consider as charging
+    current_threshold: 0.01
+    
+    # Time gap (seconds) to split charging sessions
+    gap_threshold: 300
+    
+    # Minimum number of data points in a valid charging segment
+    min_points: 25
+    
+    # Optional: SOC-based filtering (set use_soc_limit to true to enable)
+    use_soc_limit: false
+    soc_start_lt: 50.0
+    soc_end_gt: 65.0
+  
+  # Data filtering rules
+  filters:
+    # Minimum vehicle mileage (km)
+    min_mileage: 1000.0
+    
+    # Valid SOC range
+    soc_range: [0, 100]
+    
+    # Valid voltage range factor
+    voltage_min: 0
+    
+    # Valid temperature range (°C)
+    temp_min: -100
+
+# =============================================================================
+# Spark Configuration
+# =============================================================================
+spark:
+  # Application name
+  app_name: BatteryDataProcessing
+  
+  # Number of shuffle partitions (adjust based on data size)
+  # Rule of thumb: 2-3x total cores in cluster
+  shuffle_partitions: 200
+  
+  # Executor memory
+  executor_memory: 4g
+  
+  # Memory overhead for executors
+  memory_overhead: 4g
+  
+  # Enable adaptive query execution
+  adaptive_enabled: true
+  
+  # Enable Spark caching (Databricks)
+  io_cache_enabled: true
+
+# =============================================================================
+# Output Configuration
+# =============================================================================
+output:
+  # Output format: "delta" (recommended) or "parquet"
+  format: delta
+  
+  # Partition column for output data
+  partition_by: car_name
+  
+  # Overwrite existing data
+  mode: overwrite
