@@ -99,3 +99,6 @@ dmypy.json
 
 # Pyre type checker
 .pyre/
+
+# External symbolic links
+Projects_Summary

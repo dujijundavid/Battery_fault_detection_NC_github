@@ -1,0 +1,12 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(~/miniconda3/envs/py312/bin/python:*)",
+      "Bash(~/miniconda3/envs/py312/bin/pip list:*)",
+      "Bash(conda info:*)",
+      "Bash(conda:*)",
+      "Bash(~/miniconda3/bin/conda:*)",
+      "Bash(git ls-tree:*)"
+    ]
+  }
+}
