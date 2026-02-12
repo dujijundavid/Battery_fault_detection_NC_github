@@ -6,7 +6,8 @@
       "Bash(conda info:*)",
       "Bash(conda:*)",
       "Bash(~/miniconda3/bin/conda:*)",
-      "Bash(git ls-tree:*)"
+      "Bash(git ls-tree:*)",
+      "Bash(git push:*)"
     ]
   }
 }
