@@ -1,0 +1,19 @@
+# This is a Databricks asset bundle definition for fire_case_prediction_v2.
+# The Databricks extension requires databricks.yml configuration file.
+# See https://docs.databricks.com/dev-tools/bundles/index.html for documentation.
+
+bundle:
+  name: battery_fault_detection
+
+targets:
+  dev:
+    mode: development
+    default: true
+    workspace:
+      host: https://adb-622251785000174.2.databricks.azure.cn
+
+  ## Optionally, there could be 'staging' or 'prod' targets here.
+  #
+  # prod:
+  #   workspace:
+  #     host: https://adb-622251785000174.2.databricks.azure.cn
