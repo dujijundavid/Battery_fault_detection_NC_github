@@ -4,13 +4,38 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-This is the official implementation of **DyAD (Dynamic Variational Autoencoder)** for battery fault detection, published in Nature Communications. The project implements multiple anomaly detection methods for electric vehicle battery fault detection using charging time-series data.
+This is the **official implementation** of **DyAD (Dynamic Variational Autoencoder)** for battery fault detection, published in Nature Communications. The project implements multiple anomaly detection methods for electric vehicle battery fault detection using charging time-series data.
 
 **Core Methods Implemented:**
 - **DyAD** - The main method using bidirectional RNN encoder with conditional VAE decoder
 - **AutoEncoder + SVDD** - Traditional baseline methods
 - **LSTM-AE** - Recurrent autoencoder baseline
 - **GDN** - Graph deviation network baseline
+- **Gaussian Process** - Non-parametric baseline
+
+## Repository Structure
+
+```
+Battery_fault_detection_NC_github/
+├── dyad/                      # DyAD: Main method implementation
+├── baselines/                 # Comparison/baseline methods
+│   ├── auto_encoder_svdd/ # AutoEncoder + Deep SVDD
+│   ├── lstm_ae/           # LSTM Autoencoder
+│   ├── gdn/               # Graph Deviation Network
+│   └── gaussian_process/  # Gaussian Process
+├── data/                      # Dataset
+│   ├── battery_brand*/     # Raw data by brand
+│   ├── label/             # Labels
+│   └── splits/           # Five-fold cross-validation splits
+├── evaluation/                # Evaluation notebooks (AUROC calculation)
+├── docs/                      # Comprehensive documentation
+│   ├── tutorials/        # Step-by-step tutorials
+│   ├── reference/        # Technical reference
+│   └── domain/           # Domain knowledge
+├── databricks.yml            # Databricks configuration
+├── requirement.txt           # Python dependencies (CUDA 10.2)
+└── requirements_relaxed.txt  # Alternative dependencies (flexible TF versions)
+```
 
 ## Common Commands
 
@@ -29,13 +54,14 @@ pip install -r requirement.txt
 cd data
 # Run the notebook to generate five-fold split files
 jupyter notebook five_fold_train_test_split.ipynb
-# Generates: five_fold_utils/all_car_dict.npz.npy and ind_odd_dict*.npz.npy
 ```
+**Output:** Generates `five_fold_utils/all_car_dict.npz.npy` and `ind_odd_dict*.npz.npy` files
 
 ### Training DyAD (Main Method)
 
 ```bash
-cd DyAD
+cd dyad
+
 # Single fold training
 python main_five_fold.py --config_path model_params_battery_brand1.json --fold_num 0
 
@@ -45,51 +71,88 @@ for fold in {0..4}; do
 done
 ```
 
+**Brand switching:** Currently hardcoded to brand 1. To use other brands, manually modify `ind_ood_car_dict_path` in `model/dataset.py`:
+- Brand 2: `../data/splits/ind_odd_dict2.npz.npy`
+- Brand 3: `../data/splits/ind_odd_dict3.npz.npy`
+- All brands: `../data/splits/all_car_dict.npz.npy`
+
 ### Training Comparison Methods
 
+#### AutoEncoder + Deep SVDD
+
 ```bash
-# AutoEncoder
-cd AE_and_SVDD
+cd baselines/auto_encoder_svdd
+
+# Train AutoEncoder
 python traditional_methods.py --method auto_encoder --normalize --fold_num 0
 
-# Deep SVDD
+# Train Deep SVDD
 python traditional_methods.py --method deepsvdd --normalize --fold_num 0
+```
 
-# LSTM-AE
-cd Recurrent-Autoencoder-modify
+#### LSTM-AE
+
+```bash
+cd baselines/lstm_ae
+
+# Single fold training
 python main.py configs/config_lstm_ae_battery_0.json
 
-# GDN
-cd GDN_battery
+# Five-fold cross-validation (run 5 times with different config files)
+# Config files: config_lstm_ae_battery_{0..4}.json
+```
+
+#### GDN (Graph Deviation Network)
+
+```bash
+cd baselines/gdn
+
+# Train on brand 1, fold 0, 20 epochs
 bash run_battery.sh 3 battery 1 0 20
+```
+
+#### Gaussian Process
+
+```bash
+cd baselines/gaussian_process
+
+# Train on brand 1, fold 0
+python gaussian_process.py 3 battery 1 0
 ```
 
 ### Evaluation
 
-```bash
-# AUROC calculation is done via Jupyter notebooks in notebooks/ directory
-# Each method has corresponding evaluation notebooks:
-# - dyad_eval_fivefold-threshold.ipynb (robust scores)
-# - dyad_eval_fivefold-threshold_no.ipynb (average scores)
-# Note: Update paths in notebooks before running
-```
+**Note:** Evaluation is done via Jupyter notebooks in the `evaluation/` directory. Each method has corresponding evaluation notebooks:
+
+- `dyad_eval_fivefold-threshold.ipynb` - DyAD robust scores
+- `dyad_eval_fivefold-threshold_no.ipynb` - DyAD average scores
+- `traditional_methods_eval-threshold.ipynb` - AE+SVDD robust scores
+- `traditional_methods_eval-threshold_no.ipynb` - AE+SVDD average scores
+- `lstmad_eval_fivefold-threshold.ipynb` - LSTM-AE robust scores
+- `lstmad_eval_fivefold-threshold_no.ipynb` - LSTM-AE average scores
+- `gdn_eval_five_fold-threshold.ipynb` - GDN robust scores
+- `gdn_eval_five_fold-threshold_no.ipynb` - GDN average scores
+- `gaussian_process_nature_version_robust.ipynb` - GP robust scores
+- `gaussian_process_nature_version_robust-no.ipynb` - GP average scores
+
+**Important:** Before running evaluation notebooks, update the data/model paths to match the new directory structure.
 
 ## Code Architecture
 
 ### DyAD Module Structure
 
 ```
-DyAD/
+dyad/
 ├── main_five_fold.py          # Entry point: orchestrates train → extract → evaluate
-├── train.py                  # Training loop with KL annealing
-├── extract.py                # Feature extraction from trained model
-├── evaluate.py               # Anomaly scoring using reconstruction error
-├── utils.py                  # Utility functions (to_var, normalization)
+├── train.py                    # Training class with KL annealing
+├── extract.py                  # Feature extraction from trained model
+├── evaluate.py                 # Anomaly evaluation using reconstruction error
+├── utils.py                    # Utilities (to_var, normalization)
 ├── model/
 │   ├── dynamic_vae.py         # DynamicVAE model definition
 │   ├── dataset.py             # Five-fold cross-validation data loader
-│   └── tasks.py              # Feature selection per battery brand
-└── model_params_battery_brand*.json  # Hyperparameter configs
+│   └── tasks.py               # Feature selection per battery brand
+└── model_params_battery_brand*.json  # Hyperparameter configs per brand
 ```
 
 ### Key Architectural Patterns
@@ -99,19 +162,17 @@ DyAD/
 - Train: 4/5 of IND samples
 - Test: 1/5 of IND + ALL OOD (abnormal) samples
 - Fold selection controlled by `fold_num` parameter (0-4)
-- Split definitions stored in `five_fold_utils/ind_odd_dict*.npz.npy`
+- Split definitions stored in `data/splits/` as `ind_odd_dict*.npz.npy`
 
 **2. Multi-Brand Support**
-- Each battery brand (1/2/3) has separate config and data split files
-- To switch brands, modify `ind_ood_car_dict_path` in:
-  - `DyAD/model/dataset.py`
-  - Corresponding files in other method directories
+- Each battery brand (1/2/3) has separate configs
+- To switch brands, modify `ind_ood_car_dict_path` in `model/dataset.py`
 
 **3. DynamicVAE Model Flow**
 ```
-Input (batch, seq, 7 features)
+Input (batch, seq, features)
     ↓
-Encoder Filter (select 6-7 features depending on brand)
+Encoder Filter (selects features depending on brand)
     ↓
 Bidirectional RNN Encoder
     ↓
@@ -123,14 +184,14 @@ Decoder Initial Hidden from z
     ↓
 Conditional Decoder (SOC + Current as conditions)
     ↓
-Reconstruction (batch, seq, 3-5 output features)
+Reconstruction (batch, seq, output features)
 ```
 
 **4. Feature Selection by Brand**
-- Brand 1: 7 encoder features (soc, current, min_temp, max_single_volt, min_single_volt, volt, max_temp), 2 decoder conditions, 5 outputs
-- Brand 2: 7 encoder features, 4 decoder conditions, 3 outputs
-- Brand 3: 6 encoder features, 2 decoder conditions, 4 outputs
-- Defined in `tasks.py` via `BatterybrandaTask`, `BatterybrandbTask`, `EvTask`
+- **Brand 1**: 7 encoder features, 2 decoder conditions, 5 outputs
+- **Brand 2**: 7 encoder features, 4 decoder conditions, 3 outputs
+- **Brand 3**: 6 encoder features, 2 decoder conditions, 4 outputs
+- Defined in `model/tasks.py` via `BatteryBrand1Task`, `BatteryBrand2Task`, `BatteryBrand3Task`
 
 ### Loss Function Components
 
@@ -138,13 +199,13 @@ Reconstruction (batch, seq, 3-5 output features)
 2. **KL Divergence** - Regularizes latent space (with annealing)
 3. **Label Loss** - Auxiliary mileage prediction task
 
-Total Loss = NLL + β(t)·KL + Label
+**Total Loss = NLL + β(t)·KL + Label**
 
 **KL Annealing** prevents posterior collapse:
 - Linear: `kl_weight = anneal0 * min(1, step / x0)`
 - Logistic: `kl_weight = anneal0 / (1 + exp(-k*(step - x0)))`
 
-### Data Format
+## Data Format
 
 Each `.pkl` file contains a tuple:
 1. **Time series tensor** - Charging data with shape (seq_len, num_features)
@@ -161,10 +222,9 @@ Column names stored in `data/battery_brand*/column.pkl`
 After training, outputs are saved to timestamped directories:
 
 ```
-dyad_vae_save/YYYY-MM-DD-HH-MM-SS_fold0/
+dyad_vae_save/YYYY-MM-DD-HH-MM-SS_fold{num}/
 ├── model/
-│   ├── model.torch           # Trained model weights
-│   └── model_params.json     # Full configuration snapshot
+│   └── model.torch           # Trained model weights
 ├── feature/                # Training set extracted features
 ├── mean/                   # Test set extracted features
 ├── loss/                   # Loss curve plots
@@ -172,28 +232,31 @@ dyad_vae_save/YYYY-MM-DD-HH-MM-SS_fold0/
     └── test_segment_scores.csv  # car_id, label, rec_error
 ```
 
-### Key Files for Modification
+## Databricks Integration
 
-| File | When to Modify |
-|------|----------------|
-| `model_params_battery_brand*.json` | Tuning hyperparameters (latent_size, hidden_size, learning_rate, loss weights) |
-| `model/dynamic_vae.py` | Changing model architecture (new layers, different RNN types) |
-| `model/tasks.py` | Adding new battery brands or modifying feature selection |
-| `model/dataset.py` | Changing data loading logic or fold splitting |
-| `train.py` | Modifying loss function or training loop behavior |
+- **Configuration:** `databricks.yml` at repository root
+- **Setup:** See `infrastructure/databricks/SETUP_GPU_CLUSTER.md`
+- **GPU Testing:** See `infrastructure/databricks/GPU_test.ipynb`
+- **Troubleshooting:** See `infrastructure/databricks/TROUBLESHOOTING.md`
 
 ## Important Implementation Notes
 
 1. **GPU Requirements**: Code expects CUDA. For CPU-only, set `CUDA_VISIBLE_DEVICES=""` environment variable
 2. **Version Constraints**: Requires specific PyTorch 1.5.1 + CUDA 10.2 for torch-geometric compatibility
 3. **Path Configuration**: All paths in config files use relative paths from the method's directory
-4. **Brand Selection**: Must manually change dictionary paths in code when switching brands (not parameterized)
+4. **Brand Selection**: Currently hardcoded to brand 1; modify dataset.py for other brands
 5. **Variable Length Handling**: Model supports `pack_padded_sequence` for variable-length sequences
 
 ## Documentation
 
-- **Quick Start**: [docs/QUICKSTART.md](docs/QUICKSTART.md)
-- **Architecture Reference**: [docs/reference/Architecture_Reference.md](docs/reference/Architecture_Reference.md)
-- **Training Guide**: [docs/reference/Training_and_Evaluation.md](docs/reference/Training_and_Evaluation.md)
-- **Tutorial Series**: [docs/tutorials/](docs/tutorials/) - Step-by-step learning guides
-- **Index**: [docs/INDEX.md](docs/INDEX.md) - Complete documentation navigation
+- **Quick Start:** [docs/QUICKSTART.md](QUICKSTART.md)
+- **Tutorials:** [docs/tutorials/](tutorials/)
+- **Architecture Reference:** [docs/reference/Architecture_Reference.md](reference/Architecture_Reference.md)
+- **Training Guide:** [docs/reference/Training_and_Evaluation.md](reference/Training_and_Evaluation.md)
+
+## Dependencies
+
+- **Strict (requirement.txt):** TensorFlow 2.6.2 (for CUDA 10.2 compatibility)
+- **Relaxed (requirements_relaxed.txt):** TensorFlow >=2.10.0,<2.17 (for newer CUDA versions)
+
+Use `requirements_relaxed.txt` if you have a different CUDA version or want to use newer TensorFlow.
